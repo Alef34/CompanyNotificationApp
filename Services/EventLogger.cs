@@ -20,16 +20,27 @@ namespace CompanyNotificationApp.Services
 
         public override string ToString()
         {
-            string icon = Level switch
+            string icon = "";
+            switch (Level)
             {
-                LogLevel.Info => "ℹ️",
-                LogLevel.Success => "✅",
-                LogLevel.Warning => "⚠️",
-                LogLevel.Error => "❌",
-                _ => "•"
-            };
+                case LogLevel.Info:
+                    icon = "ℹ️";
+                    break;
+                case LogLevel.Success:
+                    icon = "✅";
+                    break;
+                case LogLevel.Warning:
+                    icon = "⚠️";
+                    break;
+                case LogLevel.Error:
+                    icon = "❌";
+                    break;
+                default:
+                    icon = "•";
+                    break;
+            }
 
-            return $"[{Timestamp:HH:mm:ss}] {icon} {Level.ToString().ToUpper()}: {Message}";
+            return string.Format("[{0:HH:mm:ss}] {1} {2}: {3}", Timestamp, icon, Level.ToString().ToUpper(), Message);
         }
     }
 
@@ -99,7 +110,10 @@ namespace CompanyNotificationApp.Services
                 _logs.Add(logEntry);
             }
 
-            OnLogAdded?.Invoke(logEntry);
+            if (OnLogAdded != null)
+            {
+                OnLogAdded(logEntry);
+            }
         }
 
         public List<LogEntry> GetAllLogs()
