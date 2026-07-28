@@ -19,7 +19,6 @@ namespace CompanyNotificationApp
             this.Text = "Viewer udalostí (Log Viewer)";
             this.Size = new System.Drawing.Size(800, 500);
             this.StartPosition = FormStartPosition.CenterParent;
-            this.Icon = SystemIcons.Information;
         }
 
         private void LogViewerForm_Load(object sender, EventArgs e)
@@ -27,7 +26,7 @@ namespace CompanyNotificationApp
             InitializeUI();
             LoadExistingLogs();
             
-            // Subsribe na nové logy
+            // Subscribe na nové logy
             _logger.OnLogAdded += LogAdded;
         }
 
@@ -122,7 +121,7 @@ namespace CompanyNotificationApp
 
         private void UpdateStatus()
         {
-            lblStatus.Text = $"Počet logov: {lbLogs.Items.Count}";
+            lblStatus.Text = string.Format("Počet logov: {0}", lbLogs.Items.Count);
         }
 
         private void ClearLogs()
@@ -141,7 +140,7 @@ namespace CompanyNotificationApp
             SaveFileDialog saveFileDialog = new SaveFileDialog
             {
                 Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
-                FileName = $"logs_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.txt"
+                FileName = string.Format("logs_{0:yyyy-MM-dd_HH-mm-ss}.txt", DateTime.Now)
             };
 
             if (saveFileDialog.ShowDialog() == DialogResult.OK)
@@ -151,9 +150,9 @@ namespace CompanyNotificationApp
                     var logs = _logger.GetAllLogs();
                     using (System.IO.StreamWriter writer = new System.IO.StreamWriter(saveFileDialog.FileName))
                     {
-                        writer.WriteLine($"=== LOG EXPORT ===");
-                        writer.WriteLine($"Dátum exportu: {DateTime.Now:dd.MM.yyyy HH:mm:ss}");
-                        writer.WriteLine($"Počet logov: {logs.Count}");
+                        writer.WriteLine("=== LOG EXPORT ===");
+                        writer.WriteLine(string.Format("Dátum exportu: {0:dd.MM.yyyy HH:mm:ss}", DateTime.Now));
+                        writer.WriteLine(string.Format("Počet logov: {0}", logs.Count));
                         writer.WriteLine(new string('=', 50));
                         writer.WriteLine();
 
@@ -163,11 +162,11 @@ namespace CompanyNotificationApp
                         }
                     }
 
-                    MessageBox.Show($"Logy exportované do:\n{saveFileDialog.FileName}", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(string.Format("Logy exportované do:\n{0}", saveFileDialog.FileName), "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Chyba pri exporte: {ex.Message}", "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show(string.Format("Chyba pri exporte: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
