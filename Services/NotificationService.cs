@@ -71,24 +71,32 @@ namespace CompanyNotificationApp.Services
 
         private string GetTaskDescription(CompanyOptionType optionType)
         {
-            return optionType switch
+            switch (optionType)
             {
-                CompanyOptionType.Employees => "Povinnosť: Hlásenie zamestnancov",
-                CompanyOptionType.VAT => "Povinnosť: DPH vykazovanie",
-                CompanyOptionType.Slovakia => "Povinnosť: Hlásenie pre Slovensko",
-                _ => "Nová povinnosť"
-            };
+                case CompanyOptionType.Employees:
+                    return "Povinnosť: Hlásenie zamestnancov";
+                case CompanyOptionType.VAT:
+                    return "Povinnosť: DPH vykazovanie";
+                case CompanyOptionType.Slovakia:
+                    return "Povinnosť: Hlásenie pre Slovensko";
+                default:
+                    return "Nová povinnosť";
+            }
         }
 
         private DateTime GetNextDueDate(CompanyOptionType optionType)
         {
-            return optionType switch
+            switch (optionType)
             {
-                CompanyOptionType.Employees => DateTime.Now.AddMonths(1),
-                CompanyOptionType.VAT => DateTime.Now.AddMonths(1),
-                CompanyOptionType.Slovakia => DateTime.Now.AddMonths(3),
-                _ => DateTime.Now.AddMonths(1)
-            };
+                case CompanyOptionType.Employees:
+                    return DateTime.Now.AddMonths(1);
+                case CompanyOptionType.VAT:
+                    return DateTime.Now.AddMonths(1);
+                case CompanyOptionType.Slovakia:
+                    return DateTime.Now.AddMonths(3);
+                default:
+                    return DateTime.Now.AddMonths(1);
+            }
         }
 
         public void MarkTaskAsCompleted(int taskId)
