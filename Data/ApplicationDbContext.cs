@@ -12,6 +12,7 @@ namespace CompanyNotificationApp.Data
         public DbSet<Company> Companies { get; set; }
         public DbSet<NotificationTask> NotificationTasks { get; set; }
         public DbSet<NotificationTemplate> NotificationTemplates { get; set; }
+        public DbSet<CompanyNotification> CompanyNotifications { get; set; }
 
         protected override void OnModelCreating(DbModelBuilder modelBuilder)
         {
