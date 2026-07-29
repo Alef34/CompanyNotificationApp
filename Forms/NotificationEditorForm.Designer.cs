@@ -15,9 +15,14 @@ namespace CompanyNotificationApp
 
         private void InitializeComponent()
         {
-            components = new System.ComponentModel.Container();
+            this.SuspendLayout();
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.ClientSize = new System.Drawing.Size(600, 500);
+            this.Name = "NotificationEditorForm";
+            this.Text = "Notifikácie";
             this.Load += new System.EventHandler(this.NotificationEditorForm_Load);
+            this.ResumeLayout(false);
         }
     }
 }
