@@ -114,5 +114,54 @@ namespace CompanyNotificationApp.Services
                 .Where(nt => !nt.IsCompleted && nt.DueDate <= DateTime.Now)
                 .ToList();
         }
+
+        // Nové metódy pre CompanyNotification
+        public void AddNotification(CompanyNotification notification)
+        {
+            if (notification == null)
+                throw new ArgumentNullException(nameof(notification));
+
+            _context.CompanyNotifications.Add(notification);
+            _context.SaveChanges();
+        }
+
+        public void DeleteNotification(int notificationId)
+        {
+            var notification = _context.CompanyNotifications.FirstOrDefault(n => n.Id == notificationId);
+            if (notification != null)
+            {
+                _context.CompanyNotifications.Remove(notification);
+                _context.SaveChanges();
+            }
+        }
+
+        public List<CompanyNotification> GetNotificationsByCompany(int companyId)
+        {
+            return _context.CompanyNotifications
+                .Where(n => n.CompanyId == companyId)
+                .OrderByDescending(n => n.CreatedDate)
+                .ToList();
+        }
+
+        public CompanyNotification GetNotificationById(int notificationId)
+        {
+            return _context.CompanyNotifications.FirstOrDefault(n => n.Id == notificationId);
+        }
+
+        public void UpdateNotification(CompanyNotification notification)
+        {
+            if (notification == null)
+                throw new ArgumentNullException(nameof(notification));
+
+            var existing = _context.CompanyNotifications.FirstOrDefault(n => n.Id == notification.Id);
+            if (existing != null)
+            {
+                existing.Description = notification.Description;
+                existing.DueDate = notification.DueDate;
+                existing.NotificationType = notification.NotificationType;
+                existing.IsCompleted = notification.IsCompleted;
+                _context.SaveChanges();
+            }
+        }
     }
 }
