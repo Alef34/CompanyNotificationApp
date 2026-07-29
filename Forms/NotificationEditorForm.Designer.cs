@@ -17,6 +17,7 @@ namespace CompanyNotificationApp
         {
             components = new System.ComponentModel.Container();
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Load += new System.EventHandler(this.NotificationEditorForm_Load);
         }
     }
 }
