@@ -18,13 +18,16 @@ namespace CompanyNotificationApp
         private Button btnAdd;
         private Button btnUpdate;
         private Button btnDelete;
+        private Button btnNotifications;
         private Company selectedCompany;
+        private EventLogger _logger;
 
         public CompanyManagementForm(CompanyService companyService, NotificationService notificationService)
         {
             InitializeComponent();
             _companyService = companyService;
             _notificationService = notificationService;
+            _logger = EventLogger.Instance;
             this.Text = "Správa firiem";
             this.Size = new System.Drawing.Size(1000, 600);
             this.StartPosition = FormStartPosition.CenterParent;
@@ -91,7 +94,18 @@ namespace CompanyNotificationApp
             };
             btnDelete.Click += (s, e) => DeleteCompany();
 
-            panelForm.Controls.AddRange(new Control[] { lblName, txtName, lblEmail, txtEmail, chkEmployees, chkVAT, chkSlovakia, btnAdd, btnUpdate, btnDelete });
+            btnNotifications = new Button
+            {
+                Text = "📋 Notifikácie",
+                Location = new System.Drawing.Point(280, 110),
+                Width = 120,
+                Height = 25,
+                BackColor = System.Drawing.Color.Purple,
+                ForeColor = System.Drawing.Color.White
+            };
+            btnNotifications.Click += (s, e) => ManageNotifications();
+
+            panelForm.Controls.AddRange(new Control[] { lblName, txtName, lblEmail, txtEmail, chkEmployees, chkVAT, chkSlovakia, btnAdd, btnUpdate, btnDelete, btnNotifications });
 
             // DataGridView
             dgvCompanies = new DataGridView
@@ -142,13 +156,15 @@ namespace CompanyNotificationApp
             try
             {
                 _companyService.AddCompany(company);
+                _logger.LogSuccess("CompanyManagement", string.Format("Firma pridaná: {0}", company.Name));
                 MessageBox.Show("Firma bola pridaná!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 ClearForm();
                 LoadCompanies();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Chyba: {ex.Message}", "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _logger.LogError("CompanyManagement", string.Format("Chyba pri pridaní: {0}", ex.Message));
+                MessageBox.Show(string.Format("Chyba: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -169,13 +185,15 @@ namespace CompanyNotificationApp
             try
             {
                 _companyService.UpdateCompany(selectedCompany);
+                _logger.LogSuccess("CompanyManagement", string.Format("Firma upravená: {0}", selectedCompany.Name));
                 MessageBox.Show("Firma bola upravená!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 ClearForm();
                 LoadCompanies();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Chyba: {ex.Message}", "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _logger.LogError("CompanyManagement", string.Format("Chyba pri úprave: {0}", ex.Message));
+                MessageBox.Show(string.Format("Chyba: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -187,20 +205,35 @@ namespace CompanyNotificationApp
                 return;
             }
 
-            if (MessageBox.Show($"Naozaj chceš zmazať firmu '{selectedCompany.Name}'?", "Potvrdenie", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            if (MessageBox.Show(string.Format("Naozaj chceš zmazať firmu '{0}'?", selectedCompany.Name), "Potvrdenie", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 try
                 {
                     _companyService.DeleteCompany(selectedCompany.Id);
+                    _logger.LogSuccess("CompanyManagement", string.Format("Firma zmazaná: {0}", selectedCompany.Name));
                     MessageBox.Show("Firma bola zmazaná!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     ClearForm();
                     LoadCompanies();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Chyba: {ex.Message}", "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    _logger.LogError("CompanyManagement", string.Format("Chyba pri mazaní: {0}", ex.Message));
+                    MessageBox.Show(string.Format("Chyba: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
+        }
+
+        private void ManageNotifications()
+        {
+            if (selectedCompany == null)
+            {
+                MessageBox.Show("Vyber firmu.", "Upozornenie", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            _logger.LogInfo("CompanyManagement", string.Format("Otvorené spravovanie notifikácií pre: {0}", selectedCompany.Name));
+            NotificationEditorForm form = new NotificationEditorForm(selectedCompany, _notificationService);
+            form.ShowDialog();
         }
 
         private void SelectCompany()
