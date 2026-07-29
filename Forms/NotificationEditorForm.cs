@@ -10,6 +10,10 @@ namespace CompanyNotificationApp
         private NotificationService _notificationService;
         private Company _company;
         private EventLogger _logger;
+        private DataGridView dgvNotifications;
+        private TextBox txtDescription;
+        private DateTimePicker dtpDueDate;
+        private ComboBox cbxType;
 
         public NotificationEditorForm(Company company, NotificationService notificationService)
         {
@@ -41,11 +45,11 @@ namespace CompanyNotificationApp
 
             // Popis
             Label lblDescription = new Label { Text = "Popis:", Location = new System.Drawing.Point(10, 10), Width = 100 };
-            TextBox txtDescription = new TextBox { Location = new System.Drawing.Point(120, 10), Width = 200, Name = "txtDescription" };
+            txtDescription = new TextBox { Location = new System.Drawing.Point(120, 10), Width = 200, Name = "txtDescription" };
 
             // Termín
             Label lblDueDate = new Label { Text = "Termín:", Location = new System.Drawing.Point(10, 40), Width = 100 };
-            DateTimePicker dtpDueDate = new DateTimePicker 
+            dtpDueDate = new DateTimePicker 
             { 
                 Location = new System.Drawing.Point(120, 40), 
                 Width = 200,
@@ -55,7 +59,7 @@ namespace CompanyNotificationApp
 
             // Typ notifikácie
             Label lblType = new Label { Text = "Typ:", Location = new System.Drawing.Point(10, 70), Width = 100 };
-            ComboBox cbxType = new ComboBox
+            cbxType = new ComboBox
             {
                 Location = new System.Drawing.Point(120, 70),
                 Width = 200,
@@ -75,12 +79,12 @@ namespace CompanyNotificationApp
                 BackColor = System.Drawing.Color.Green,
                 ForeColor = System.Drawing.Color.White
             };
-            btnAdd.Click += (s, e) => AddNotification(txtDescription, dtpDueDate, cbxType);
+            btnAdd.Click += (s, e) => AddNotification();
 
             panelForm.Controls.AddRange(new Control[] { lblDescription, txtDescription, lblDueDate, dtpDueDate, lblType, cbxType, btnAdd });
 
             // DataGridView
-            DataGridView dgvNotifications = new DataGridView
+            dgvNotifications = new DataGridView
             {
                 Dock = DockStyle.Fill,
                 AutoGenerateColumns = false,
@@ -105,7 +109,7 @@ namespace CompanyNotificationApp
                 BackColor = System.Drawing.Color.Red,
                 ForeColor = System.Drawing.Color.White
             };
-            btnDelete.Click += (s, e) => DeleteNotification(dgvNotifications);
+            btnDelete.Click += (s, e) => DeleteNotification();
 
             this.Controls.Add(btnDelete);
             this.Controls.Add(dgvNotifications);
@@ -116,11 +120,10 @@ namespace CompanyNotificationApp
         {
             try
             {
-                var dgv = this.Controls["dgvNotifications"] as DataGridView;
-                if (dgv != null)
+                if (dgvNotifications != null)
                 {
                     var notifications = _notificationService.GetNotificationsByCompany(_company.Id);
-                    dgv.DataSource = notifications;
+                    dgvNotifications.DataSource = notifications;
                 }
             }
             catch (Exception ex)
@@ -130,7 +133,7 @@ namespace CompanyNotificationApp
             }
         }
 
-        private void AddNotification(TextBox txtDescription, DateTimePicker dtpDueDate, ComboBox cbxType)
+        private void AddNotification()
         {
             if (string.IsNullOrWhiteSpace(txtDescription.Text))
             {
@@ -168,9 +171,9 @@ namespace CompanyNotificationApp
             }
         }
 
-        private void DeleteNotification(DataGridView dgv)
+        private void DeleteNotification()
         {
-            if (dgv.SelectedRows.Count == 0)
+            if (dgvNotifications.SelectedRows.Count == 0)
             {
                 MessageBox.Show("Vyber notifikáciu na zmazanie.", "Upozornenie", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -178,7 +181,7 @@ namespace CompanyNotificationApp
 
             try
             {
-                var row = dgv.SelectedRows[0];
+                var row = dgvNotifications.SelectedRows[0];
                 if (int.TryParse(row.Cells[0].Value.ToString(), out int notificationId))
                 {
                     if (MessageBox.Show("Naozaj chceš zmazať túto notifikáciu?", "Potvrdenie", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
