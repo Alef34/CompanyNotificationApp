@@ -126,13 +126,29 @@ namespace CompanyNotificationApp
 
             dgvCompanies.CellClick += (s, e) => SelectCompany();
 
+            // Pridaj najprv panelForm, potom DataGridView (správne poradie)
             this.Controls.Add(dgvCompanies);
             this.Controls.Add(panelForm);
         }
 
         private void LoadCompanies()
         {
-            dgvCompanies.DataSource = _companyService.GetAllCompanies();
+            try
+            {
+                var companies = _companyService.GetAllCompanies();
+                if (companies != null && companies.Count > 0)
+                {
+                    dgvCompanies.DataSource = companies;
+                }
+                else
+                {
+                    dgvCompanies.DataSource = new System.Collections.Generic.List<Company>();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format("Chyba pri načítavaní firiem: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void AddCompany()
