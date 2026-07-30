@@ -26,6 +26,7 @@ namespace CompanyNotificationApp.Services
 
                 foreach (var company in allCompanies)
                 {
+                    // Kontorla NotificationTasks (automatické - Zamestnanci, DPH, Slovensko)
                     if (company.HasEmployees)
                         await CheckOptionAsync(company, CompanyOptionType.Employees);
 
@@ -34,6 +35,9 @@ namespace CompanyNotificationApp.Services
 
                     if (company.IsFromSlovakia)
                         await CheckOptionAsync(company, CompanyOptionType.Slovakia);
+
+                    // Kontrola CompanyNotifications (manuálne vytvorené)
+                    await CheckCompanyNotificationsAsync(company);
                 }
             }
             catch (Exception ex)
@@ -66,6 +70,39 @@ namespace CompanyNotificationApp.Services
                 _context.NotificationTasks.Add(newTask);
                 await _emailService.SendNotificationAsync(company, newTask);
                 _context.SaveChanges();
+            }
+        }
+
+        private async Task CheckCompanyNotificationsAsync(Company company)
+        {
+            var pendingNotifications = _context.CompanyNotifications
+                .Where(cn => cn.CompanyId == company.Id && 
+                            !cn.IsCompleted && 
+                            cn.DueDate <= DateTime.Now)
+                .ToList();
+
+            foreach (var notification in pendingNotifications)
+            {
+                // Vytvor NotificationTask z CompanyNotification
+                var task = new NotificationTask
+                {
+                    CompanyId = company.Id,
+                    Description = notification.Description,
+                    DueDate = notification.DueDate,
+                    RelatedOption = CompanyOptionType.Slovakia, // Default, keďže CompanyNotification nemá konkrétny typ
+                    NotificationType = notification.NotificationType,
+                    IsCompleted = false,
+                    LastNotificationDate = DateTime.Now
+                };
+
+                // Pošli email
+                await _emailService.SendNotificationAsync(company, task);
+
+                // Označ ako hotové
+                notification.IsCompleted = true;
+                _context.SaveChanges();
+
+                System.Diagnostics.Debug.WriteLine($"Notifikácia poslana: {company.Name} - {notification.Description}");
             }
         }
 
