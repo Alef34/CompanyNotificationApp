@@ -129,7 +129,7 @@ namespace CompanyNotificationApp
             dgvCompanies.Columns.Add(new DataGridViewCheckBoxColumn { DataPropertyName = "IsFromSlovakia", HeaderText = "Slovensko", Width = 100 });
 
             dgvCompanies.CellClick += (s, e) => SelectCompany();
-            dgvCompanies.CellBeginEdit += (s, e) => TrackCheckboxOriginalValue(e);
+            dgvCompanies.CellBeginEdit += (s, e) => TrackCheckboxOriginalValue(e.RowIndex, e.ColumnIndex);
             dgvCompanies.CellEndEdit += (s, e) => HandleCheckboxChange(e);
 
             // Pridaj najprv panelForm, potom DataGridView (správne poradie)
@@ -276,20 +276,20 @@ namespace CompanyNotificationApp
             }
         }
 
-        private void TrackCheckboxOriginalValue(DataGridViewCellEventArgs e)
+        private void TrackCheckboxOriginalValue(int rowIndex, int columnIndex)
         {
             _editedCheckboxOriginalValue = null;
             _editedCheckboxRowIndex = -1;
             _editedCheckboxColumnIndex = -1;
 
-            if (e.RowIndex < 0 || !IsCheckboxColumn(e.ColumnIndex))
+            if (rowIndex < 0 || !IsCheckboxColumn(columnIndex))
             {
                 return;
             }
 
-            _editedCheckboxOriginalValue = ToBooleanValue(dgvCompanies.Rows[e.RowIndex].Cells[e.ColumnIndex].Value);
-            _editedCheckboxRowIndex = e.RowIndex;
-            _editedCheckboxColumnIndex = e.ColumnIndex;
+            _editedCheckboxOriginalValue = ToBooleanValue(dgvCompanies.Rows[rowIndex].Cells[columnIndex].Value);
+            _editedCheckboxRowIndex = rowIndex;
+            _editedCheckboxColumnIndex = columnIndex;
         }
 
         private void HandleCheckboxChange(DataGridViewCellEventArgs e)
@@ -319,6 +319,20 @@ namespace CompanyNotificationApp
                 }
 
                 selectedCompany = companyFromRow;
+
+                if (e.ColumnIndex == 3)
+                {
+                    selectedCompany.HasEmployees = newValue;
+                }
+                else if (e.ColumnIndex == 4)
+                {
+                    selectedCompany.HasVAT = newValue;
+                }
+                else if (e.ColumnIndex == 5)
+                {
+                    selectedCompany.IsFromSlovakia = newValue;
+                }
+
                 chkEmployees.Checked = selectedCompany.HasEmployees;
                 chkVAT.Checked = selectedCompany.HasVAT;
                 chkSlovakia.Checked = selectedCompany.IsFromSlovakia;
