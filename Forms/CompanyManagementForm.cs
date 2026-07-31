@@ -21,6 +21,10 @@ namespace CompanyNotificationApp
         private Button btnNotifications;
         private Company selectedCompany;
         private EventLogger _logger;
+        private bool? _editedCheckboxOriginalValue;
+        private int _editedCheckboxRowIndex = -1;
+        private int _editedCheckboxColumnIndex = -1;
+        private bool _isCheckboxUpdateInProgress;
 
         public CompanyManagementForm(CompanyService companyService, NotificationService notificationService)
         {
@@ -125,6 +129,8 @@ namespace CompanyNotificationApp
             dgvCompanies.Columns.Add(new DataGridViewCheckBoxColumn { DataPropertyName = "IsFromSlovakia", HeaderText = "Slovensko", Width = 100 });
 
             dgvCompanies.CellClick += (s, e) => SelectCompany();
+            dgvCompanies.CellBeginEdit += (s, e) => TrackCheckboxOriginalValue(e);
+            dgvCompanies.CellEndEdit += (s, e) => HandleCheckboxChange(e);
 
             // Pridaj najprv panelForm, potom DataGridView (správne poradie)
             this.Controls.Add(dgvCompanies);
@@ -268,6 +274,82 @@ namespace CompanyNotificationApp
                     chkSlovakia.Checked = selectedCompany.IsFromSlovakia;
                 }
             }
+        }
+
+        private void TrackCheckboxOriginalValue(DataGridViewCellEventArgs e)
+        {
+            _editedCheckboxOriginalValue = null;
+            _editedCheckboxRowIndex = -1;
+            _editedCheckboxColumnIndex = -1;
+
+            if (e.RowIndex < 0 || !IsCheckboxColumn(e.ColumnIndex))
+            {
+                return;
+            }
+
+            _editedCheckboxOriginalValue = ToBooleanValue(dgvCompanies.Rows[e.RowIndex].Cells[e.ColumnIndex].Value);
+            _editedCheckboxRowIndex = e.RowIndex;
+            _editedCheckboxColumnIndex = e.ColumnIndex;
+        }
+
+        private void HandleCheckboxChange(DataGridViewCellEventArgs e)
+        {
+            if (_isCheckboxUpdateInProgress || e.RowIndex < 0 || !IsCheckboxColumn(e.ColumnIndex))
+            {
+                return;
+            }
+
+            try
+            {
+                if (_editedCheckboxRowIndex != e.RowIndex || _editedCheckboxColumnIndex != e.ColumnIndex)
+                {
+                    return;
+                }
+
+                bool newValue = ToBooleanValue(dgvCompanies.Rows[e.RowIndex].Cells[e.ColumnIndex].Value);
+                if (!_editedCheckboxOriginalValue.HasValue || _editedCheckboxOriginalValue.Value == newValue)
+                {
+                    return;
+                }
+
+                Company companyFromRow = dgvCompanies.Rows[e.RowIndex].DataBoundItem as Company;
+                if (companyFromRow == null)
+                {
+                    return;
+                }
+
+                selectedCompany = companyFromRow;
+                chkEmployees.Checked = selectedCompany.HasEmployees;
+                chkVAT.Checked = selectedCompany.HasVAT;
+                chkSlovakia.Checked = selectedCompany.IsFromSlovakia;
+
+                _isCheckboxUpdateInProgress = true;
+                _companyService.UpdateCompany(selectedCompany);
+                _logger.LogSuccess("CompanyManagement", string.Format("Checkbox zmenený pre firmu: {0}", selectedCompany.Name));
+                LoadCompanies();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("CompanyManagement", string.Format("Chyba pri zmene checkboxu: {0}", ex.Message));
+                MessageBox.Show(string.Format("Chyba pri ukladaní zmeny: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _isCheckboxUpdateInProgress = false;
+                _editedCheckboxOriginalValue = null;
+                _editedCheckboxRowIndex = -1;
+                _editedCheckboxColumnIndex = -1;
+            }
+        }
+
+        private bool IsCheckboxColumn(int columnIndex)
+        {
+            return columnIndex == 3 || columnIndex == 4 || columnIndex == 5;
+        }
+
+        private bool ToBooleanValue(object value)
+        {
+            return value != null && value != DBNull.Value && Convert.ToBoolean(value);
         }
 
         private void ClearForm()
