@@ -33,6 +33,70 @@ namespace CompanyNotificationApp.Services
             company.CreatedDate = DateTime.Now;
             _context.Companies.Add(company);
             _context.SaveChanges();
+
+            CreateInitialNotifications(company);
+        }
+
+        private void CreateInitialNotifications(Company company)
+        {
+            var today = DateTime.Today;
+
+            if (company.HasEmployees)
+            {
+                var dueDate = today.Day <= 10
+                    ? new DateTime(today.Year, today.Month, 10)
+                    : new DateTime(today.Year, today.Month, 1).AddMonths(1).AddDays(9);
+
+                _context.CompanyNotifications.Add(new CompanyNotification
+                {
+                    CompanyId = company.Id,
+                    Description = "Mesačná povinnosť - Zamestnanci",
+                    DueDate = dueDate,
+                    NotificationType = "Monthly",
+                    RelatedOption = "Employees",
+                    IsCompleted = false,
+                    CreatedDate = DateTime.Now
+                });
+            }
+
+            if (company.HasVAT)
+            {
+                var dueDate = today.Day <= 20
+                    ? new DateTime(today.Year, today.Month, 20)
+                    : new DateTime(today.Year, today.Month, 1).AddMonths(1).AddDays(19);
+
+                _context.CompanyNotifications.Add(new CompanyNotification
+                {
+                    CompanyId = company.Id,
+                    Description = "Mesačná povinnosť - DPH",
+                    DueDate = dueDate,
+                    NotificationType = "Monthly",
+                    RelatedOption = "VAT",
+                    IsCompleted = false,
+                    CreatedDate = DateTime.Now
+                });
+            }
+
+            if (company.IsFromSlovakia)
+            {
+                var anniversaryThisYear = new DateTime(today.Year, company.CreatedDate.Month, company.CreatedDate.Day);
+                var dueDate = today < anniversaryThisYear
+                    ? anniversaryThisYear
+                    : anniversaryThisYear.AddYears(1);
+
+                _context.CompanyNotifications.Add(new CompanyNotification
+                {
+                    CompanyId = company.Id,
+                    Description = "Ročná povinnosť - Slovensko",
+                    DueDate = dueDate,
+                    NotificationType = "Annual",
+                    RelatedOption = "Slovakia",
+                    IsCompleted = false,
+                    CreatedDate = DateTime.Now
+                });
+            }
+
+            _context.SaveChanges();
         }
 
         public void UpdateCompany(Company company)
