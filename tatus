@@ -1,0 +1,2138 @@
+[1mdiff --git a/Data/ApplicationDbContext.cs b/Data/ApplicationDbContext.cs[m
+[1mdeleted file mode 100644[m
+[1mindex bca63b0..0000000[m
+[1m--- a/Data/ApplicationDbContext.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,29 +0,0 @@[m
+[31m-using System.Data.Entity;[m
+[31m-using CompanyNotificationApp.Models;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp.Data[m
+[31m-{[m
+[31m-    public class ApplicationDbContext : DbContext[m
+[31m-    {[m
+[31m-        public ApplicationDbContext() : base("DefaultConnection")[m
+[31m-        {[m
+[31m-        }[m
+[31m-[m
+[31m-        public DbSet<Company> Companies { get; set; }[m
+[31m-        public DbSet<NotificationTask> NotificationTasks { get; set; }[m
+[31m-        public DbSet<NotificationTemplate> NotificationTemplates { get; set; }[m
+[31m-        public DbSet<CompanyNotification> CompanyNotifications { get; set; }[m
+[31m-[m
+[31m-        protected override void OnModelCreating(DbModelBuilder modelBuilder)[m
+[31m-        {[m
+[31m-            // Company - NotificationTask vzťah[m
+[31m-            modelBuilder.Entity<NotificationTask>()[m
+[31m-                .HasRequired(nt => nt.Company)[m
+[31m-                .WithMany(c => c.Tasks)[m
+[31m-                .HasForeignKey(nt => nt.CompanyId)[m
+[31m-                .WillCascadeOnDelete(true);[m
+[31m-[m
+[31m-            base.OnModelCreating(modelBuilder);[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Forms/CompanyManagementForm.Designer.cs b/Forms/CompanyManagementForm.Designer.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 1e606ab..0000000[m
+[1m--- a/Forms/CompanyManagementForm.Designer.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,31 +0,0 @@[m
+[31m-namespace CompanyNotificationApp[m
+[31m-{[m
+[31m-    partial class CompanyManagementForm[m
+[31m-    {[m
+[31m-        private System.ComponentModel.IContainer components = null;[m
+[31m-[m
+[31m-        protected override void Dispose(bool disposing)[m
+[31m-        {[m
+[31m-            if (disposing && (components != null))[m
+[31m-            {[m
+[31m-                components.Dispose();[m
+[31m-            }[m
+[31m-            base.Dispose(disposing);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeComponent()[m
+[31m-        {[m
+[31m-            this.SuspendLayout();[m
+[31m-            // [m
+[31m-            // CompanyManagementForm[m
+[31m-            // [m
+[31m-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);[m
+[31m-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;[m
+[31m-            this.ClientSize = new System.Drawing.Size(1000, 600);[m
+[31m-            this.Name = "CompanyManagementForm";[m
+[31m-            this.Text = "Správa firiem";[m
+[31m-            this.Load += new System.EventHandler(this.CompanyManagementForm_Load);[m
+[31m-            this.ResumeLayout(false);[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Forms/CompanyManagementForm.cs b/Forms/CompanyManagementForm.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 4950082..0000000[m
+[1m--- a/Forms/CompanyManagementForm.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,379 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Windows.Forms;[m
+[31m-using CompanyNotificationApp.Models;[m
+[31m-using CompanyNotificationApp.Services;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp[m
+[31m-{[m
+[31m-    public partial class CompanyManagementForm : Form[m
+[31m-    {[m
+[31m-        private CompanyService _companyService;[m
+[31m-        private NotificationService _notificationService;[m
+[31m-        private DataGridView dgvCompanies;[m
+[31m-        private TextBox txtName;[m
+[31m-        private TextBox txtEmail;[m
+[31m-        private CheckBox chkEmployees;[m
+[31m-        private CheckBox chkVAT;[m
+[31m-        private CheckBox chkSlovakia;[m
+[31m-        private Button btnAdd;[m
+[31m-        private Button btnUpdate;[m
+[31m-        private Button btnDelete;[m
+[31m-        private Button btnNotifications;[m
+[31m-        private Company selectedCompany;[m
+[31m-        private EventLogger _logger;[m
+[31m-        private bool? _editedCheckboxOriginalValue;[m
+[31m-        private int _editedCheckboxRowIndex = -1;[m
+[31m-        private int _editedCheckboxColumnIndex = -1;[m
+[31m-        private bool _isCheckboxUpdateInProgress;[m
+[31m-[m
+[31m-        public CompanyManagementForm(CompanyService companyService, NotificationService notificationService)[m
+[31m-        {[m
+[31m-            InitializeComponent();[m
+[31m-            _companyService = companyService;[m
+[31m-            _notificationService = notificationService;[m
+[31m-            _logger = EventLogger.Instance;[m
+[31m-            this.Text = "Správa firiem";[m
+[31m-            this.Size = new System.Drawing.Size(1000, 600);[m
+[31m-            this.StartPosition = FormStartPosition.CenterParent;[m
+[31m-        }[m
+[31m-[m
+[31m-        private void CompanyManagementForm_Load(object sender, EventArgs e)[m
+[31m-        {[m
+[31m-            InitializeUI();[m
+[31m-            LoadCompanies();[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeUI()[m
+[31m-        {[m
+[31m-            // Panel pre formulár[m
+[31m-            Panel panelForm = new Panel[m
+[31m-            {[m
+[31m-                Dock = DockStyle.Top,[m
+[31m-                Height = 150,[m
+[31m-                BackColor = System.Drawing.Color.WhiteSmoke,[m
+[31m-                BorderStyle = BorderStyle.FixedSingle[m
+[31m-            };[m
+[31m-[m
+[31m-            // Názov[m
+[31m-            Label lblName = new Label { Text = "Názov firmy:", Location = new System.Drawing.Point(10, 10), Width = 100 };[m
+[31m-            txtName = new TextBox { Location = new System.Drawing.Point(120, 10), Width = 200 };[m
+[31m-[m
+[31m-            // Email[m
+[31m-            Label lblEmail = new Label { Text = "Email:", Location = new System.Drawing.Point(10, 40), Width = 100 };[m
+[31m-            txtEmail = new TextBox { Location = new System.Drawing.Point(120, 40), Width = 200 };[m
+[31m-[m
+[31m-            // Checkboxy[m
+[31m-            chkEmployees = new CheckBox { Text = "Zamestnanci", Location = new System.Drawing.Point(10, 70), Width = 120 };[m
+[31m-            chkVAT = new CheckBox { Text = "DPH", Location = new System.Drawing.Point(140, 70), Width = 100 };[m
+[31m-            chkSlovakia = new CheckBox { Text = "Slovensko", Location = new System.Drawing.Point(250, 70), Width = 120 };[m
+[31m-[m
+[31m-            // Tlačidlá[m
+[31m-            btnAdd = new Button[m
+[31m-            {[m
+[31m-                Text = "Pridať",[m
+[31m-                Location = new System.Drawing.Point(10, 110),[m
+[31m-                Width = 80,[m
+[31m-                BackColor = System.Drawing.Color.Green,[m
+[31m-                ForeColor = System.Drawing.Color.White[m
+[31m-            };[m
+[31m-            btnAdd.Click += (s, e) => AddCompany();[m
+[31m-[m
+[31m-            btnUpdate = new Button[m
+[31m-            {[m
+[31m-                Text = "Upraviť",[m
+[31m-                Location = new System.Drawing.Point(100, 110),[m
+[31m-                Width = 80,[m
+[31m-                BackColor = System.Drawing.Color.Blue,[m
+[31m-                ForeColor = System.Drawing.Color.White[m
+[31m-            };[m
+[31m-            btnUpdate.Click += (s, e) => UpdateCompany();[m
+[31m-[m
+[31m-            btnDelete = new Button[m
+[31m-            {[m
+[31m-                Text = "Zmazať",[m
+[31m-                Location = new System.Drawing.Point(190, 110),[m
+[31m-                Width = 80,[m
+[31m-                BackColor = System.Drawing.Color.Red,[m
+[31m-                ForeColor = System.Drawing.Color.White[m
+[31m-            };[m
+[31m-            btnDelete.Click += (s, e) => DeleteCompany();[m
+[31m-[m
+[31m-            btnNotifications = new Button[m
+[31m-            {[m
+[31m-                Text = "📋 Notifikácie",[m
+[31m-                Location = new System.Drawing.Point(280, 110),[m
+[31m-                Width = 120,[m
+[31m-                Height = 25,[m
+[31m-                BackColor = System.Drawing.Color.Purple,[m
+[31m-                ForeColor = System.Drawing.Color.White[m
+[31m-            };[m
+[31m-            btnNotifications.Click += (s, e) => ManageNotifications();[m
+[31m-[m
+[31m-            panelForm.Controls.AddRange(new Control[] { lblName, txtName, lblEmail, txtEmail, chkEmployees, chkVAT, chkSlovakia, btnAdd, btnUpdate, btnDelete, btnNotifications });[m
+[31m-[m
+[31m-            // DataGridView[m
+[31m-            dgvCompanies = new DataGridView[m
+[31m-            {[m
+[31m-                Dock = DockStyle.Fill,[m
+[31m-                AutoGenerateColumns = false,[m
+[31m-                AllowUserToAddRows = false,[m
+[31m-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,[m
+[31m-                MultiSelect = false[m
+[31m-            };[m
+[31m-[m
+[31m-            dgvCompanies.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Id", HeaderText = "ID", Width = 50 });[m
+[31m-            dgvCompanies.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Name", HeaderText = "Názov", Width = 250 });[m
+[31m-            dgvCompanies.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Email", HeaderText = "Email", Width = 200 });[m
+[31m-            dgvCompanies.Columns.Add(new DataGridViewCheckBoxColumn { DataPropertyName = "HasEmployees", HeaderText = "Zamestnanci", Width = 100 });[m
+[31m-            dgvCompanies.Columns.Add(new DataGridViewCheckBoxColumn { DataPropertyName = "HasVAT", HeaderText = "DPH", Width = 80 });[m
+[31m-            dgvCompanies.Columns.Add(new DataGridViewCheckBoxColumn { DataPropertyName = "IsFromSlovakia", HeaderText = "Slovensko", Width = 100 });[m
+[31m-[m
+[31m-            dgvCompanies.CellClick += (s, e) => SelectCompany();[m
+[31m-            dgvCompanies.CellBeginEdit += (s, e) => TrackCheckboxOriginalValue(e.RowIndex, e.ColumnIndex);[m
+[31m-            dgvCompanies.CellEndEdit += (s, e) => HandleCheckboxChange(e);[m
+[31m-[m
+[31m-            // Pridaj najprv panelForm, potom DataGridView (správne poradie)[m
+[31m-            this.Controls.Add(dgvCompanies);[m
+[31m-            this.Controls.Add(panelForm);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void LoadCompanies()[m
+[31m-        {[m
+[31m-            try[m
+[31m-            {[m
+[31m-                var companies = _companyService.GetAllCompanies();[m
+[31m-                if (companies != null && companies.Count > 0)[m
+[31m-                {[m
+[31m-                    dgvCompanies.DataSource = companies;[m
+[31m-                }[m
+[31m-                else[m
+[31m-                {[m
+[31m-                    dgvCompanies.DataSource = new System.Collections.Generic.List<Company>();[m
+[31m-                }[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                MessageBox.Show(string.Format("Chyba pri načítavaní firiem: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void AddCompany()[m
+[31m-        {[m
+[31m-            if (string.IsNullOrWhiteSpace(txtName.Text) || string.IsNullOrWhiteSpace(txtEmail.Text))[m
+[31m-            {[m
+[31m-                MessageBox.Show("Prosím vyplň názov a email.", "Validácia", MessageBoxButtons.OK, MessageBoxIcon.Warning);[m
+[31m-                return;[m
+[31m-            }[m
+[31m-[m
+[31m-            var company = new Company[m
+[31m-            {[m
+[31m-                Name = txtName.Text,[m
+[31m-                Email = txtEmail.Text,[m
+[31m-                HasEmployees = chkEmployees.Checked,[m
+[31m-                HasVAT = chkVAT.Checked,[m
+[31m-                IsFromSlovakia = chkSlovakia.Checked,[m
+[31m-                CreatedDate = DateTime.Now[m
+[31m-            };[m
+[31m-[m
+[31m-            try[m
+[31m-            {[m
+[31m-                _companyService.AddCompany(company);[m
+[31m-                _logger.LogSuccess("CompanyManagement", string.Format("Firma pridaná: {0}", company.Name));[m
+[31m-                MessageBox.Show("Firma bola pridaná!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);[m
+[31m-                ClearForm();[m
+[31m-                LoadCompanies();[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                _logger.LogError("CompanyManagement", string.Format("Chyba pri pridaní: {0}", ex.Message));[m
+[31m-                MessageBox.Show(string.Format("Chyba: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void UpdateCompany()[m
+[31m-        {[m
+[31m-            if (selectedCompany == null)[m
+[31m-            {[m
+[31m-                MessageBox.Show("Vyber firmu na úpravu.", "Upozornenie", MessageBoxButtons.OK, MessageBoxIcon.Warning);[m
+[31m-                return;[m
+[31m-            }[m
+[31m-[m
+[31m-            selectedCompany.Name = txtName.Text;[m
+[31m-            selectedCompany.Email = txtEmail.Text;[m
+[31m-            selectedCompany.HasEmployees = chkEmployees.Checked;[m
+[31m-            selectedCompany.HasVAT = chkVAT.Checked;[m
+[31m-            selectedCompany.IsFromSlovakia = chkSlovakia.Checked;[m
+[31m-[m
+[31m-            try[m
+[31m-            {[m
+[31m-                _companyService.UpdateCompany(selectedCompany);[m
+[31m-                _logger.LogSuccess("CompanyManagement", string.Format("Firma upravená: {0}", selectedCompany.Name));[m
+[31m-                MessageBox.Show("Firma bola upravená!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);[m
+[31m-                ClearForm();[m
+[31m-                LoadCompanies();[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                _logger.LogError("CompanyManagement", string.Format("Chyba pri úprave: {0}", ex.Message));[m
+[31m-                MessageBox.Show(string.Format("Chyba: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void DeleteCompany()[m
+[31m-        {[m
+[31m-            if (selectedCompany == null)[m
+[31m-            {[m
+[31m-                MessageBox.Show("Vyber firmu na zmazanie.", "Upozornenie", MessageBoxButtons.OK, MessageBoxIcon.Warning);[m
+[31m-                return;[m
+[31m-            }[m
+[31m-[m
+[31m-            if (MessageBox.Show(string.Format("Naozaj chceš zmazať firmu '{0}'?", selectedCompany.Name), "Potvrdenie", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)[m
+[31m-            {[m
+[31m-                try[m
+[31m-                {[m
+[31m-                    _companyService.DeleteCompany(selectedCompany.Id);[m
+[31m-                    _logger.LogSuccess("CompanyManagement", string.Format("Firma zmazaná: {0}", selectedCompany.Name));[m
+[31m-                    MessageBox.Show("Firma bola zmazaná!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);[m
+[31m-                    ClearForm();[m
+[31m-                    LoadCompanies();[m
+[31m-                }[m
+[31m-                catch (Exception ex)[m
+[31m-                {[m
+[31m-                    _logger.LogError("CompanyManagement", string.Format("Chyba pri mazaní: {0}", ex.Message));[m
+[31m-                    MessageBox.Show(string.Format("Chyba: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-                }[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void ManageNotifications()[m
+[31m-        {[m
+[31m-            if (selectedCompany == null)[m
+[31m-            {[m
+[31m-                MessageBox.Show("Vyber firmu.", "Upozornenie", MessageBoxButtons.OK, MessageBoxIcon.Warning);[m
+[31m-                return;[m
+[31m-            }[m
+[31m-[m
+[31m-            _logger.LogInfo("CompanyManagement", string.Format("Otvorené spravovanie notifikácií pre: {0}", selectedCompany.Name));[m
+[31m-            NotificationEditorForm form = new NotificationEditorForm(selectedCompany, _notificationService);[m
+[31m-            form.ShowDialog();[m
+[31m-        }[m
+[31m-[m
+[31m-        private void SelectCompany()[m
+[31m-        {[m
+[31m-            if (dgvCompanies.SelectedRows.Count > 0)[m
+[31m-            {[m
+[31m-                var row = dgvCompanies.SelectedRows[0];[m
+[31m-                selectedCompany = row.DataBoundItem as Company;[m
+[31m-[m
+[31m-                if (selectedCompany != null)[m
+[31m-                {[m
+[31m-                    txtName.Text = selectedCompany.Name;[m
+[31m-                    txtEmail.Text = selectedCompany.Email;[m
+[31m-                    chkEmployees.Checked = selectedCompany.HasEmployees;[m
+[31m-                    chkVAT.Checked = selectedCompany.HasVAT;[m
+[31m-                    chkSlovakia.Checked = selectedCompany.IsFromSlovakia;[m
+[31m-                }[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void TrackCheckboxOriginalValue(int rowIndex, int columnIndex)[m
+[31m-        {[m
+[31m-            _editedCheckboxOriginalValue = null;[m
+[31m-            _editedCheckboxRowIndex = -1;[m
+[31m-            _editedCheckboxColumnIndex = -1;[m
+[31m-[m
+[31m-            if (rowIndex < 0 || !IsCheckboxColumn(columnIndex))[m
+[31m-            {[m
+[31m-                return;[m
+[31m-            }[m
+[31m-[m
+[31m-            _editedCheckboxOriginalValue = ToBooleanValue(dgvCompanies.Rows[rowIndex].Cells[columnIndex].Value);[m
+[31m-            _editedCheckboxRowIndex = rowIndex;[m
+[31m-            _editedCheckboxColumnIndex = columnIndex;[m
+[31m-        }[m
+[31m-[m
+[31m-        private void HandleCheckboxChange(DataGridViewCellEventArgs e)[m
+[31m-        {[m
+[31m-            if (_isCheckboxUpdateInProgress || e.RowIndex < 0 || !IsCheckboxColumn(e.ColumnIndex))[m
+[31m-            {[m
+[31m-                return;[m
+[31m-            }[m
+[31m-[m
+[31m-            try[m
+[31m-            {[m
+[31m-                if (_editedCheckboxRowIndex != e.RowIndex || _editedCheckboxColumnIndex != e.ColumnIndex)[m
+[31m-                {[m
+[31m-                    return;[m
+[31m-                }[m
+[31m-[m
+[31m-                bool newValue = ToBooleanValue(dgvCompanies.Rows[e.RowIndex].Cells[e.ColumnIndex].Value);[m
+[31m-                if (!_editedCheckboxOriginalValue.HasValue || _editedCheckboxOriginalValue.Value == newValue)[m
+[31m-                {[m
+[31m-                    return;[m
+[31m-                }[m
+[31m-[m
+[31m-                Company companyFromRow = dgvCompanies.Rows[e.RowIndex].DataBoundItem as Company;[m
+[31m-                if (companyFromRow == null)[m
+[31m-                {[m
+[31m-                    return;[m
+[31m-                }[m
+[31m-[m
+[31m-                selectedCompany = companyFromRow;[m
+[31m-[m
+[31m-                if (e.ColumnIndex == 3)[m
+[31m-                {[m
+[31m-                    selectedCompany.HasEmployees = newValue;[m
+[31m-                }[m
+[31m-                else if (e.ColumnIndex == 4)[m
+[31m-                {[m
+[31m-                    selectedCompany.HasVAT = newValue;[m
+[31m-                }[m
+[31m-                else if (e.ColumnIndex == 5)[m
+[31m-                {[m
+[31m-                    selectedCompany.IsFromSlovakia = newValue;[m
+[31m-                }[m
+[31m-[m
+[31m-                chkEmployees.Checked = selectedCompany.HasEmployees;[m
+[31m-                chkVAT.Checked = selectedCompany.HasVAT;[m
+[31m-                chkSlovakia.Checked = selectedCompany.IsFromSlovakia;[m
+[31m-[m
+[31m-                _isCheckboxUpdateInProgress = true;[m
+[31m-                _companyService.UpdateCompany(selectedCompany);[m
+[31m-                _logger.LogSuccess("CompanyManagement", string.Format("Checkbox zmenený pre firmu: {0}", selectedCompany.Name));[m
+[31m-                LoadCompanies();[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                _logger.LogError("CompanyManagement", string.Format("Chyba pri zmene checkboxu: {0}", ex.Message));[m
+[31m-                MessageBox.Show(string.Format("Chyba pri ukladaní zmeny: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-            }[m
+[31m-            finally[m
+[31m-            {[m
+[31m-                _isCheckboxUpdateInProgress = false;[m
+[31m-                _editedCheckboxOriginalValue = null;[m
+[31m-                _editedCheckboxRowIndex = -1;[m
+[31m-                _editedCheckboxColumnIndex = -1;[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private bool IsCheckboxColumn(int columnIndex)[m
+[31m-        {[m
+[31m-            return columnIndex == 3 || columnIndex == 4 || columnIndex == 5;[m
+[31m-        }[m
+[31m-[m
+[31m-        private bool ToBooleanValue(object value)[m
+[31m-        {[m
+[31m-            return value != null && value != DBNull.Value && Convert.ToBoolean(value);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void ClearForm()[m
+[31m-        {[m
+[31m-            txtName.Clear();[m
+[31m-            txtEmail.Clear();[m
+[31m-            chkEmployees.Checked = false;[m
+[31m-            chkVAT.Checked = false;[m
+[31m-            chkSlovakia.Checked = false;[m
+[31m-            selectedCompany = null;[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Forms/LogViewerForm.Designer.cs b/Forms/LogViewerForm.Designer.cs[m
+[1mdeleted file mode 100644[m
+[1mindex cbaf0af..0000000[m
+[1m--- a/Forms/LogViewerForm.Designer.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,22 +0,0 @@[m
+[31m-namespace CompanyNotificationApp[m
+[31m-{[m
+[31m-    partial class LogViewerForm[m
+[31m-    {[m
+[31m-        private System.ComponentModel.IContainer components = null;[m
+[31m-[m
+[31m-        protected override void Dispose(bool disposing)[m
+[31m-        {[m
+[31m-            if (disposing && (components != null))[m
+[31m-            {[m
+[31m-                components.Dispose();[m
+[31m-            }[m
+[31m-            base.Dispose(disposing);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeComponent()[m
+[31m-        {[m
+[31m-            components = new System.ComponentModel.Container();[m
+[31m-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Forms/LogViewerForm.cs b/Forms/LogViewerForm.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 08e0da6..0000000[m
+[1m--- a/Forms/LogViewerForm.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,181 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Windows.Forms;[m
+[31m-using CompanyNotificationApp.Services;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp[m
+[31m-{[m
+[31m-    public partial class LogViewerForm : Form[m
+[31m-    {[m
+[31m-        private EventLogger _logger;[m
+[31m-        private ListBox lbLogs;[m
+[31m-        private Button btnClear;[m
+[31m-        private Button btnExport;[m
+[31m-        private Label lblStatus;[m
+[31m-[m
+[31m-        public LogViewerForm()[m
+[31m-        {[m
+[31m-            InitializeComponent();[m
+[31m-            _logger = EventLogger.Instance;[m
+[31m-            this.Text = "Viewer udalostí (Log Viewer)";[m
+[31m-            this.Size = new System.Drawing.Size(800, 500);[m
+[31m-            this.StartPosition = FormStartPosition.CenterParent;[m
+[31m-        }[m
+[31m-[m
+[31m-        private void LogViewerForm_Load(object sender, EventArgs e)[m
+[31m-        {[m
+[31m-            InitializeUI();[m
+[31m-            LoadExistingLogs();[m
+[31m-            [m
+[31m-            // Subscribe na nové logy[m
+[31m-            _logger.OnLogAdded += LogAdded;[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeUI()[m
+[31m-        {[m
+[31m-            // Panel pre tlačidlá[m
+[31m-            Panel panelButtons = new Panel[m
+[31m-            {[m
+[31m-                Dock = DockStyle.Top,[m
+[31m-                Height = 50,[m
+[31m-                BackColor = System.Drawing.Color.LightGray,[m
+[31m-                BorderStyle = BorderStyle.FixedSingle[m
+[31m-            };[m
+[31m-[m
+[31m-            btnClear = new Button[m
+[31m-            {[m
+[31m-                Text = "Vymazať logy",[m
+[31m-                Location = new System.Drawing.Point(10, 10),[m
+[31m-                Width = 100,[m
+[31m-                Height = 30,[m
+[31m-                BackColor = System.Drawing.Color.Red,[m
+[31m-                ForeColor = System.Drawing.Color.White[m
+[31m-            };[m
+[31m-            btnClear.Click += (s, e) => ClearLogs();[m
+[31m-[m
+[31m-            btnExport = new Button[m
+[31m-            {[m
+[31m-                Text = "Exportovať",[m
+[31m-                Location = new System.Drawing.Point(120, 10),[m
+[31m-                Width = 100,[m
+[31m-                Height = 30,[m
+[31m-                BackColor = System.Drawing.Color.Green,[m
+[31m-                ForeColor = System.Drawing.Color.White[m
+[31m-            };[m
+[31m-            btnExport.Click += (s, e) => ExportLogs();[m
+[31m-[m
+[31m-            lblStatus = new Label[m
+[31m-            {[m
+[31m-                Text = "Počet logov: 0",[m
+[31m-                Location = new System.Drawing.Point(230, 15),[m
+[31m-                Width = 200,[m
+[31m-                AutoSize = false,[m
+[31m-                Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold)[m
+[31m-            };[m
+[31m-[m
+[31m-            panelButtons.Controls.Add(btnClear);[m
+[31m-            panelButtons.Controls.Add(btnExport);[m
+[31m-            panelButtons.Controls.Add(lblStatus);[m
+[31m-[m
+[31m-            // ListBox pre logy[m
+[31m-            lbLogs = new ListBox[m
+[31m-            {[m
+[31m-                Dock = DockStyle.Fill,[m
+[31m-                Font = new System.Drawing.Font("Courier New", 9),[m
+[31m-                BackColor = System.Drawing.Color.White,[m
+[31m-                ForeColor = System.Drawing.Color.Black[m
+[31m-            };[m
+[31m-[m
+[31m-            this.Controls.Add(lbLogs);[m
+[31m-            this.Controls.Add(panelButtons);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void LoadExistingLogs()[m
+[31m-        {[m
+[31m-            var logs = _logger.GetAllLogs();[m
+[31m-            foreach (var log in logs)[m
+[31m-            {[m
+[31m-                lbLogs.Items.Add(log.ToString());[m
+[31m-            }[m
+[31m-            UpdateStatus();[m
+[31m-        }[m
+[31m-[m
+[31m-        private void LogAdded(LogEntry logEntry)[m
+[31m-        {[m
+[31m-            // Thread-safe operácia[m
+[31m-            if (this.InvokeRequired)[m
+[31m-            {[m
+[31m-                this.Invoke(new Action(() =>[m
+[31m-                {[m
+[31m-                    lbLogs.Items.Add(logEntry.ToString());[m
+[31m-                    lbLogs.TopIndex = lbLogs.Items.Count - 1; // Scroll na koniec[m
+[31m-                    UpdateStatus();[m
+[31m-                }));[m
+[31m-            }[m
+[31m-            else[m
+[31m-            {[m
+[31m-                lbLogs.Items.Add(logEntry.ToString());[m
+[31m-                lbLogs.TopIndex = lbLogs.Items.Count - 1;[m
+[31m-                UpdateStatus();[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void UpdateStatus()[m
+[31m-        {[m
+[31m-            lblStatus.Text = string.Format("Počet logov: {0}", lbLogs.Items.Count);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void ClearLogs()[m
+[31m-        {[m
+[31m-            if (MessageBox.Show("Naozaj chceš vymazať všetky logy?", "Potvrdenie", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)[m
+[31m-            {[m
+[31m-                lbLogs.Items.Clear();[m
+[31m-                _logger.ClearLogs();[m
+[31m-                UpdateStatus();[m
+[31m-                MessageBox.Show("Logy boli vymazané!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void ExportLogs()[m
+[31m-        {[m
+[31m-            SaveFileDialog saveFileDialog = new SaveFileDialog[m
+[31m-            {[m
+[31m-                Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",[m
+[31m-                FileName = string.Format("logs_{0:yyyy-MM-dd_HH-mm-ss}.txt", DateTime.Now)[m
+[31m-            };[m
+[31m-[m
+[31m-            if (saveFileDialog.ShowDialog() == DialogResult.OK)[m
+[31m-            {[m
+[31m-                try[m
+[31m-                {[m
+[31m-                    var logs = _logger.GetAllLogs();[m
+[31m-                    using (System.IO.StreamWriter writer = new System.IO.StreamWriter(saveFileDialog.FileName))[m
+[31m-                    {[m
+[31m-                        writer.WriteLine("=== LOG EXPORT ===");[m
+[31m-                        writer.WriteLine(string.Format("Dátum exportu: {0:dd.MM.yyyy HH:mm:ss}", DateTime.Now));[m
+[31m-                        writer.WriteLine(string.Format("Počet logov: {0}", logs.Count));[m
+[31m-                        writer.WriteLine(new string('=', 50));[m
+[31m-                        writer.WriteLine();[m
+[31m-[m
+[31m-                        foreach (var log in logs)[m
+[31m-                        {[m
+[31m-                            writer.WriteLine(log.ToString());[m
+[31m-                        }[m
+[31m-                    }[m
+[31m-[m
+[31m-                    MessageBox.Show(string.Format("Logy exportované do:\n{0}", saveFileDialog.FileName), "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);[m
+[31m-                }[m
+[31m-                catch (Exception ex)[m
+[31m-                {[m
+[31m-                    MessageBox.Show(string.Format("Chyba pri exporte: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-                }[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        protected override void OnFormClosing(FormClosingEventArgs e)[m
+[31m-        {[m
+[31m-            // Unsubscribe[m
+[31m-            _logger.OnLogAdded -= LogAdded;[m
+[31m-            base.OnFormClosing(e);[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Forms/MainForm.Designer.cs b/Forms/MainForm.Designer.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 94d2dc1..0000000[m
+[1m--- a/Forms/MainForm.Designer.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,31 +0,0 @@[m
+[31m-namespace CompanyNotificationApp[m
+[31m-{[m
+[31m-    partial class MainForm[m
+[31m-    {[m
+[31m-        private System.ComponentModel.IContainer components = null;[m
+[31m-[m
+[31m-        protected override void Dispose(bool disposing)[m
+[31m-        {[m
+[31m-            if (disposing && (components != null))[m
+[31m-            {[m
+[31m-                components.Dispose();[m
+[31m-            }[m
+[31m-            base.Dispose(disposing);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeComponent()[m
+[31m-        {[m
+[31m-            this.SuspendLayout();[m
+[31m-            // [m
+[31m-            // MainForm[m
+[31m-            // [m
+[31m-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);[m
+[31m-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;[m
+[31m-            this.ClientSize = new System.Drawing.Size(600, 400);[m
+[31m-            this.Name = "MainForm";[m
+[31m-            this.Text = "Company Notification App";[m
+[31m-            this.Load += new System.EventHandler(this.MainForm_Load);[m
+[31m-            this.ResumeLayout(false);[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Forms/MainForm.cs b/Forms/MainForm.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 45c37c8..0000000[m
+[1m--- a/Forms/MainForm.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,205 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Windows.Forms;[m
+[31m-using CompanyNotificationApp.Services;[m
+[31m-using CompanyNotificationApp.Data;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp[m
+[31m-{[m
+[31m-    public partial class MainForm : Form[m
+[31m-    {[m
+[31m-        private ApplicationDbContext _context;[m
+[31m-        private CompanyService _companyService;[m
+[31m-        private NotificationService _notificationService;[m
+[31m-        private TaskSchedulerService _schedulerService;[m
+[31m-        private EmailService _emailService;[m
+[31m-        private EventLogger _eventLogger;[m
+[31m-[m
+[31m-        public MainForm()[m
+[31m-        {[m
+[31m-            InitializeComponent();[m
+[31m-            this.Text = "Company Notification App";[m
+[31m-            this.Size = new System.Drawing.Size(700, 400);[m
+[31m-            this.StartPosition = FormStartPosition.CenterScreen;[m
+[31m-        }[m
+[31m-[m
+[31m-        private void MainForm_Load(object sender, EventArgs e)[m
+[31m-        {[m
+[31m-            InitializeDatabase();[m
+[31m-            InitializeServices();[m
+[31m-            InitializeUI();[m
+[31m-            StartScheduler();[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeDatabase()[m
+[31m-        {[m
+[31m-            try[m
+[31m-            {[m
+[31m-                _context = new ApplicationDbContext();[m
+[31m-                _context.Database.CreateIfNotExists();[m
+[31m-                _eventLogger = EventLogger.Instance;[m
+[31m-                _eventLogger.LogSuccess("Database", "Databáza inicializovaná");[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                _eventLogger?.LogError("Database", $"Chyba pri inicializácii: {ex.Message}");[m
+[31m-                MessageBox.Show($"Chyba pri inicializácii databázy: {ex.Message}", "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeServices()[m
+[31m-        {[m
+[31m-            _emailService = new EmailService([m
+[31m-                smtpServer: "smtp.gmail.com",[m
+[31m-                smtpPort: 587,[m
+[31m-                senderEmail: "tvoj-email@gmail.com",  // Vlož svoj email[m
+[31m-                senderPassword: "tvoje-app-password"   // Vlož app password[m
+[31m-            );[m
+[31m-[m
+[31m-            _companyService = new CompanyService(_context);[m
+[31m-            _notificationService = new NotificationService(_context, _emailService);[m
+[31m-            _schedulerService = new TaskSchedulerService(_context, _emailService);[m
+[31m-            [m
+[31m-            _eventLogger.LogSuccess("Services", "Všetky služby inicializované");[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeUI()[m
+[31m-        {[m
+[31m-            // Panel pre tlačidlá[m
+[31m-            Panel panelButtons = new Panel[m
+[31m-            {[m
+[31m-                Dock = DockStyle.Top,[m
+[31m-                Height = 60,[m
+[31m-                BackColor = System.Drawing.Color.LightGray[m
+[31m-            };[m
+[31m-[m
+[31m-            // Tlačidlo - Správa firiem[m
+[31m-            Button btnCompanies = new Button[m
+[31m-            {[m
+[31m-                Text = "Správa firiem",[m
+[31m-                Width = 140,[m
+[31m-                Height = 40,[m
+[31m-                Location = new System.Drawing.Point(10, 10),[m
+[31m-                BackColor = System.Drawing.Color.SteelBlue,[m
+[31m-                ForeColor = System.Drawing.Color.White,[m
+[31m-                Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold)[m
+[31m-            };[m
+[31m-            btnCompanies.Click += (s, e) => OpenCompanyManagement();[m
+[31m-[m
+[31m-            // Tlačidlo - Notifikácie[m
+[31m-            Button btnNotifications = new Button[m
+[31m-            {[m
+[31m-                Text = "Notifikácie",[m
+[31m-                Width = 140,[m
+[31m-                Height = 40,[m
+[31m-                Location = new System.Drawing.Point(160, 10),[m
+[31m-                BackColor = System.Drawing.Color.Green,[m
+[31m-                ForeColor = System.Drawing.Color.White,[m
+[31m-                Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold)[m
+[31m-            };[m
+[31m-            btnNotifications.Click += (s, e) => OpenNotificationDashboard();[m
+[31m-[m
+[31m-            // Tlačidlo - Spustiť kontrolu[m
+[31m-            Button btnCheckNow = new Button[m
+[31m-            {[m
+[31m-                Text = "Kontrola teraz",[m
+[31m-                Width = 140,[m
+[31m-                Height = 40,[m
+[31m-                Location = new System.Drawing.Point(310, 10),[m
+[31m-                BackColor = System.Drawing.Color.Orange,[m
+[31m-                ForeColor = System.Drawing.Color.White,[m
+[31m-                Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold)[m
+[31m-            };[m
+[31m-            btnCheckNow.Click += (s, e) => CheckNotificationsNow();[m
+[31m-[m
+[31m-            // Tlačidlo - Viewer udalostí[m
+[31m-            Button btnLogs = new Button[m
+[31m-            {[m
+[31m-                Text = "📋 Logy",[m
+[31m-                Width = 140,[m
+[31m-                Height = 40,[m
+[31m-                Location = new System.Drawing.Point(460, 10),[m
+[31m-                BackColor = System.Drawing.Color.Purple,[m
+[31m-                ForeColor = System.Drawing.Color.White,[m
+[31m-                Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold)[m
+[31m-            };[m
+[31m-            btnLogs.Click += (s, e) => OpenLogViewer();[m
+[31m-[m
+[31m-            panelButtons.Controls.Add(btnCompanies);[m
+[31m-            panelButtons.Controls.Add(btnNotifications);[m
+[31m-            panelButtons.Controls.Add(btnCheckNow);[m
+[31m-            panelButtons.Controls.Add(btnLogs);[m
+[31m-[m
+[31m-            // Label pre informácie[m
+[31m-            Label lblInfo = new Label[m
+[31m-            {[m
+[31m-                Text = "Vitajte v Company Notification App!\n\nTáto aplikácia spravuje notifikácie na povinnosti firiem.\nKliknutím na 'Logy' si môžeš pozrieť všetky udalosti.",[m
+[31m-                Dock = DockStyle.Fill,[m
+[31m-                TextAlign = System.Drawing.ContentAlignment.MiddleCenter,[m
+[31m-                Font = new System.Drawing.Font("Arial", 12)[m
+[31m-            };[m
+[31m-[m
+[31m-            this.Controls.Add(lblInfo);[m
+[31m-            this.Controls.Add(panelButtons);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void OpenCompanyManagement()[m
+[31m-        {[m
+[31m-            _eventLogger.LogInfo("UI", "Otvorená správa firiem");[m
+[31m-            CompanyManagementForm form = new CompanyManagementForm(_companyService, _notificationService);[m
+[31m-            form.ShowDialog();[m
+[31m-        }[m
+[31m-[m
+[31m-        private void OpenNotificationDashboard()[m
+[31m-        {[m
+[31m-            _eventLogger.LogInfo("UI", "Otvorený dashboard notifikácií");[m
+[31m-            NotificationDashboardForm form = new NotificationDashboardForm(_notificationService, _companyService);[m
+[31m-            form.ShowDialog();[m
+[31m-        }[m
+[31m-[m
+[31m-        private void OpenLogViewer()[m
+[31m-        {[m
+[31m-            _eventLogger.LogInfo("UI", "Otvorený Log Viewer");[m
+[31m-            LogViewerForm form = new LogViewerForm();[m
+[31m-            form.ShowDialog();[m
+[31m-        }[m
+[31m-[m
+[31m-        private void CheckNotificationsNow()[m
+[31m-        {[m
+[31m-            try[m
+[31m-            {[m
+[31m-                _eventLogger.LogInfo("Scheduler", "Spustená manuálna kontrola notifikácií");[m
+[31m-                _notificationService.CheckAndNotifyAsync().Wait();[m
+[31m-                _eventLogger.LogSuccess("Scheduler", "Kontrola notifikácií dokončená");[m
+[31m-                MessageBox.Show("Kontrola notifikácií dokončená!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                _eventLogger.LogError("Scheduler", $"Chyba pri kontrole: {ex.Message}");[m
+[31m-                MessageBox.Show($"Chyba pri kontrole: {ex.Message}", "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void StartScheduler()[m
+[31m-        {[m
+[31m-            try[m
+[31m-            {[m
+[31m-                _eventLogger.LogInfo("Scheduler", "Spúšťa sa scheduler - kontrola každú hodinu");[m
+[31m-                _schedulerService.StartScheduler(intervalMinutes: 60); // Kontrola každú hodinu[m
+[31m-                _eventLogger.LogSuccess("Scheduler", "Scheduler spustený úspešne");[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                _eventLogger.LogError("Scheduler", $"Chyba pri spustení: {ex.Message}");[m
+[31m-                MessageBox.Show($"Chyba pri spustení schedulera: {ex.Message}", "Upozornenie", MessageBoxButtons.OK, MessageBoxIcon.Warning);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        protected override void OnFormClosing(FormClosingEventArgs e)[m
+[31m-        {[m
+[31m-            _eventLogger.LogInfo("App", "Aplikácia sa zatvárajúca...");[m
+[31m-            _schedulerService?.StopScheduler();[m
+[31m-            _context?.Dispose();[m
+[31m-            base.OnFormClosing(e);[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Forms/NotificationDashboardForm.Designer.cs b/Forms/NotificationDashboardForm.Designer.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 6f8f6ba..0000000[m
+[1m--- a/Forms/NotificationDashboardForm.Designer.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,31 +0,0 @@[m
+[31m-namespace CompanyNotificationApp[m
+[31m-{[m
+[31m-    partial class NotificationDashboardForm[m
+[31m-    {[m
+[31m-        private System.ComponentModel.IContainer components = null;[m
+[31m-[m
+[31m-        protected override void Dispose(bool disposing)[m
+[31m-        {[m
+[31m-            if (disposing && (components != null))[m
+[31m-            {[m
+[31m-                components.Dispose();[m
+[31m-            }[m
+[31m-            base.Dispose(disposing);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeComponent()[m
+[31m-        {[m
+[31m-            this.SuspendLayout();[m
+[31m-            // [m
+[31m-            // NotificationDashboardForm[m
+[31m-            // [m
+[31m-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);[m
+[31m-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;[m
+[31m-            this.ClientSize = new System.Drawing.Size(1000, 600);[m
+[31m-            this.Name = "NotificationDashboardForm";[m
+[31m-            this.Text = "Notifikácie";[m
+[31m-            this.Load += new System.EventHandler(this.NotificationDashboardForm_Load);[m
+[31m-            this.ResumeLayout(false);[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Forms/NotificationDashboardForm.cs b/Forms/NotificationDashboardForm.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 8a7b20a..0000000[m
+[1m--- a/Forms/NotificationDashboardForm.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,122 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Windows.Forms;[m
+[31m-using CompanyNotificationApp.Services;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp[m
+[31m-{[m
+[31m-    public partial class NotificationDashboardForm : Form[m
+[31m-    {[m
+[31m-        private NotificationService _notificationService;[m
+[31m-        private CompanyService _companyService;[m
+[31m-        private DataGridView dgvNotifications;[m
+[31m-        private Button btnMarkComplete;[m
+[31m-        private Button btnRefresh;[m
+[31m-[m
+[31m-        public NotificationDashboardForm(NotificationService notificationService, CompanyService companyService)[m
+[31m-        {[m
+[31m-            InitializeComponent();[m
+[31m-            _notificationService = notificationService;[m
+[31m-            _companyService = companyService;[m
+[31m-            this.Text = "Notifikácie";[m
+[31m-            this.Size = new System.Drawing.Size(1000, 600);[m
+[31m-            this.StartPosition = FormStartPosition.CenterParent;[m
+[31m-        }[m
+[31m-[m
+[31m-        private void NotificationDashboardForm_Load(object sender, EventArgs e)[m
+[31m-        {[m
+[31m-            InitializeUI();[m
+[31m-            LoadNotifications();[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeUI()[m
+[31m-        {[m
+[31m-            // Panel pre tlačidlá[m
+[31m-            Panel panelButtons = new Panel[m
+[31m-            {[m
+[31m-                Dock = DockStyle.Top,[m
+[31m-                Height = 50,[m
+[31m-                BackColor = System.Drawing.Color.LightGray[m
+[31m-            };[m
+[31m-[m
+[31m-            btnRefresh = new Button[m
+[31m-            {[m
+[31m-                Text = "Obnoviť",[m
+[31m-                Location = new System.Drawing.Point(10, 10),[m
+[31m-                Width = 100,[m
+[31m-                BackColor = System.Drawing.Color.SteelBlue,[m
+[31m-                ForeColor = System.Drawing.Color.White[m
+[31m-            };[m
+[31m-            btnRefresh.Click += (s, e) => LoadNotifications();[m
+[31m-[m
+[31m-            btnMarkComplete = new Button[m
+[31m-            {[m
+[31m-                Text = "Označiť ako hotové",[m
+[31m-                Location = new System.Drawing.Point(120, 10),[m
+[31m-                Width = 150,[m
+[31m-                BackColor = System.Drawing.Color.Green,[m
+[31m-                ForeColor = System.Drawing.Color.White[m
+[31m-            };[m
+[31m-            btnMarkComplete.Click += (s, e) => MarkAsComplete();[m
+[31m-[m
+[31m-            panelButtons.Controls.Add(btnRefresh);[m
+[31m-            panelButtons.Controls.Add(btnMarkComplete);[m
+[31m-[m
+[31m-            // DataGridView[m
+[31m-            dgvNotifications = new DataGridView[m
+[31m-            {[m
+[31m-                Dock = DockStyle.Fill,[m
+[31m-                AutoGenerateColumns = false,[m
+[31m-                AllowUserToAddRows = false,[m
+[31m-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,[m
+[31m-                MultiSelect = false[m
+[31m-            };[m
+[31m-[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Id", HeaderText = "ID", Width = 50 });[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Description", HeaderText = "Popis", Width = 300 });[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "DueDate", HeaderText = "Termín", Width = 150, DefaultCellStyle = new System.Windows.Forms.DataGridViewCellStyle { Format = "dd.MM.yyyy" } });[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RelatedOption", HeaderText = "Typ", Width = 100 });[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "NotificationType", HeaderText = "Typ notifikácie", Width = 150 });[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewCheckBoxColumn { DataPropertyName = "IsCompleted", HeaderText = "Hotovo", Width = 80 });[m
+[31m-[m
+[31m-            this.Controls.Add(dgvNotifications);[m
+[31m-            this.Controls.Add(panelButtons);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void LoadNotifications()[m
+[31m-        {[m
+[31m-            try[m
+[31m-            {[m
+[31m-                var allTasks = _notificationService.GetAllPendingTasks();[m
+[31m-                dgvNotifications.DataSource = allTasks;[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                MessageBox.Show($"Chyba pri načítaní notifikácií: {ex.Message}", "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void MarkAsComplete()[m
+[31m-        {[m
+[31m-            if (dgvNotifications.SelectedRows.Count == 0)[m
+[31m-            {[m
+[31m-                MessageBox.Show("Vyber notifikáciu.", "Upozornenie", MessageBoxButtons.OK, MessageBoxIcon.Warning);[m
+[31m-                return;[m
+[31m-            }[m
+[31m-[m
+[31m-            try[m
+[31m-            {[m
+[31m-                var row = dgvNotifications.SelectedRows[0];[m
+[31m-                if (int.TryParse(row.Cells[0].Value.ToString(), out int taskId))[m
+[31m-                {[m
+[31m-                    _notificationService.MarkTaskAsCompleted(taskId);[m
+[31m-                    MessageBox.Show("Notifikácia bola označená ako hotová!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);[m
+[31m-                    LoadNotifications();[m
+[31m-                }[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                MessageBox.Show($"Chyba: {ex.Message}", "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-            }[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Forms/NotificationEditorForm.Designer.cs b/Forms/NotificationEditorForm.Designer.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 9b03bb3..0000000[m
+[1m--- a/Forms/NotificationEditorForm.Designer.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,28 +0,0 @@[m
+[31m-namespace CompanyNotificationApp[m
+[31m-{[m
+[31m-    partial class NotificationEditorForm[m
+[31m-    {[m
+[31m-        private System.ComponentModel.IContainer components = null;[m
+[31m-[m
+[31m-        protected override void Dispose(bool disposing)[m
+[31m-        {[m
+[31m-            if (disposing && (components != null))[m
+[31m-            {[m
+[31m-                components.Dispose();[m
+[31m-            }[m
+[31m-            base.Dispose(disposing);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeComponent()[m
+[31m-        {[m
+[31m-            this.SuspendLayout();[m
+[31m-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);[m
+[31m-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;[m
+[31m-            this.ClientSize = new System.Drawing.Size(600, 500);[m
+[31m-            this.Name = "NotificationEditorForm";[m
+[31m-            this.Text = "Notifikácie";[m
+[31m-            this.Load += new System.EventHandler(this.NotificationEditorForm_Load);[m
+[31m-            this.ResumeLayout(false);[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Forms/NotificationEditorForm.cs b/Forms/NotificationEditorForm.cs[m
+[1mdeleted file mode 100644[m
+[1mindex bcc9cdf..0000000[m
+[1m--- a/Forms/NotificationEditorForm.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,203 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Windows.Forms;[m
+[31m-using CompanyNotificationApp.Models;[m
+[31m-using CompanyNotificationApp.Services;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp[m
+[31m-{[m
+[31m-    public partial class NotificationEditorForm : Form[m
+[31m-    {[m
+[31m-        private NotificationService _notificationService;[m
+[31m-        private Company _company;[m
+[31m-        private EventLogger _logger;[m
+[31m-        private DataGridView dgvNotifications;[m
+[31m-        private TextBox txtDescription;[m
+[31m-        private DateTimePicker dtpDueDate;[m
+[31m-        private ComboBox cbxType;[m
+[31m-[m
+[31m-        public NotificationEditorForm(Company company, NotificationService notificationService)[m
+[31m-        {[m
+[31m-            InitializeComponent();[m
+[31m-            _company = company;[m
+[31m-            _notificationService = notificationService;[m
+[31m-            _logger = EventLogger.Instance;[m
+[31m-            this.Text = string.Format("Notifikácie pre {0}", company.Name);[m
+[31m-            this.Size = new System.Drawing.Size(600, 500);[m
+[31m-            this.StartPosition = FormStartPosition.CenterParent;[m
+[31m-        }[m
+[31m-[m
+[31m-        private void NotificationEditorForm_Load(object sender, EventArgs e)[m
+[31m-        {[m
+[31m-            InitializeUI();[m
+[31m-            LoadNotificationsForCompany();[m
+[31m-        }[m
+[31m-[m
+[31m-        private void InitializeUI()[m
+[31m-        {[m
+[31m-            // Panel pre formulár na pridávanie[m
+[31m-            Panel panelForm = new Panel[m
+[31m-            {[m
+[31m-                Dock = DockStyle.Top,[m
+[31m-                Height = 120,[m
+[31m-                BackColor = System.Drawing.Color.WhiteSmoke,[m
+[31m-                BorderStyle = BorderStyle.FixedSingle[m
+[31m-            };[m
+[31m-[m
+[31m-            // Popis[m
+[31m-            Label lblDescription = new Label { Text = "Popis:", Location = new System.Drawing.Point(10, 10), Width = 100 };[m
+[31m-            txtDescription = new TextBox { Location = new System.Drawing.Point(120, 10), Width = 200, Name = "txtDescription" };[m
+[31m-[m
+[31m-            // Termín[m
+[31m-            Label lblDueDate = new Label { Text = "Termín:", Location = new System.Drawing.Point(10, 40), Width = 100 };[m
+[31m-            dtpDueDate = new DateTimePicker [m
+[31m-            { [m
+[31m-                Location = new System.Drawing.Point(120, 40), [m
+[31m-                Width = 200,[m
+[31m-                Name = "dtpDueDate",[m
+[31m-                Value = DateTime.Now[m
+[31m-            };[m
+[31m-[m
+[31m-            // Typ notifikácie[m
+[31m-            Label lblType = new Label { Text = "Typ:", Location = new System.Drawing.Point(10, 70), Width = 100 };[m
+[31m-            cbxType = new ComboBox[m
+[31m-            {[m
+[31m-                Location = new System.Drawing.Point(120, 70),[m
+[31m-                Width = 200,[m
+[31m-                DropDownStyle = ComboBoxStyle.DropDownList,[m
+[31m-                Name = "cbxType"[m
+[31m-            };[m
+[31m-            cbxType.Items.AddRange(new object[] { "Raz ročne", "Mesačne", "Štvrťročne", "Polročne", "Jednorázovo" });[m
+[31m-            cbxType.SelectedIndex = 0;[m
+[31m-[m
+[31m-            // Tlačidlo Pridať[m
+[31m-            Button btnAdd = new Button[m
+[31m-            {[m
+[31m-                Text = "Pridať notifikáciu",[m
+[31m-                Location = new System.Drawing.Point(10, 90),[m
+[31m-                Width = 150,[m
+[31m-                Height = 25,[m
+[31m-                BackColor = System.Drawing.Color.Green,[m
+[31m-                ForeColor = System.Drawing.Color.White[m
+[31m-            };[m
+[31m-            btnAdd.Click += (s, e) => AddNotification();[m
+[31m-[m
+[31m-            panelForm.Controls.AddRange(new Control[] { lblDescription, txtDescription, lblDueDate, dtpDueDate, lblType, cbxType, btnAdd });[m
+[31m-[m
+[31m-            // DataGridView[m
+[31m-            dgvNotifications = new DataGridView[m
+[31m-            {[m
+[31m-                Dock = DockStyle.Fill,[m
+[31m-                AutoGenerateColumns = false,[m
+[31m-                AllowUserToAddRows = false,[m
+[31m-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,[m
+[31m-                MultiSelect = false,[m
+[31m-                Name = "dgvNotifications"[m
+[31m-            };[m
+[31m-[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Id", HeaderText = "ID", Width = 50 });[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Description", HeaderText = "Popis", Width = 200 });[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "DueDate", HeaderText = "Termín", Width = 100 });[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "NotificationType", HeaderText = "Typ", Width = 120 });[m
+[31m-            dgvNotifications.Columns.Add(new DataGridViewCheckBoxColumn { DataPropertyName = "IsCompleted", HeaderText = "Hotovo", Width = 80 });[m
+[31m-[m
+[31m-            // Tlačidlo Zmazať[m
+[31m-            Button btnDelete = new Button[m
+[31m-            {[m
+[31m-                Text = "Zmazať vybranú",[m
+[31m-                Dock = DockStyle.Bottom,[m
+[31m-                Height = 40,[m
+[31m-                BackColor = System.Drawing.Color.Red,[m
+[31m-                ForeColor = System.Drawing.Color.White[m
+[31m-            };[m
+[31m-            btnDelete.Click += (s, e) => DeleteNotification();[m
+[31m-[m
+[31m-            this.Controls.Add(btnDelete);[m
+[31m-            this.Controls.Add(dgvNotifications);[m
+[31m-            this.Controls.Add(panelForm);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void LoadNotificationsForCompany()[m
+[31m-        {[m
+[31m-            try[m
+[31m-            {[m
+[31m-                if (dgvNotifications != null)[m
+[31m-                {[m
+[31m-                    var notifications = _notificationService.GetNotificationsByCompany(_company.Id);[m
+[31m-                    dgvNotifications.DataSource = notifications;[m
+[31m-                }[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                MessageBox.Show(string.Format("Chyba pri načítaní notifikácií: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-                _logger.LogError("NotificationEditor", string.Format("Chyba pri načítaní: {0}", ex.Message));[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void AddNotification()[m
+[31m-        {[m
+[31m-            if (string.IsNullOrWhiteSpace(txtDescription.Text))[m
+[31m-            {[m
+[31m-                MessageBox.Show("Prosím vyplň popis notifikácie.", "Validácia", MessageBoxButtons.OK, MessageBoxIcon.Warning);[m
+[31m-                return;[m
+[31m-            }[m
+[31m-[m
+[31m-            try[m
+[31m-            {[m
+[31m-                var notification = new Models.CompanyNotification[m
+[31m-                {[m
+[31m-                    CompanyId = _company.Id,[m
+[31m-                    Description = txtDescription.Text,[m
+[31m-                    DueDate = dtpDueDate.Value,[m
+[31m-                    NotificationType = cbxType.SelectedItem.ToString(),[m
+[31m-                    RelatedOption = "Custom",[m
+[31m-                    IsCompleted = false,[m
+[31m-                    CreatedDate = DateTime.Now[m
+[31m-                };[m
+[31m-[m
+[31m-                _notificationService.AddNotification(notification);[m
+[31m-                _logger.LogSuccess("NotificationEditor", string.Format("Notifikácia pridaná: {0}", txtDescription.Text));[m
+[31m-                MessageBox.Show("Notifikácia bola pridaná!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);[m
+[31m-                [m
+[31m-                txtDescription.Clear();[m
+[31m-                dtpDueDate.Value = DateTime.Now;[m
+[31m-                cbxType.SelectedIndex = 0;[m
+[31m-                [m
+[31m-                LoadNotificationsForCompany();[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                MessageBox.Show(string.Format("Chyba pri pridaní notifikácie: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-                _logger.LogError("NotificationEditor", string.Format("Chyba pri pridaní: {0}", ex.Message));[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void DeleteNotification()[m
+[31m-        {[m
+[31m-            if (dgvNotifications.SelectedRows.Count == 0)[m
+[31m-            {[m
+[31m-                MessageBox.Show("Vyber notifikáciu na zmazanie.", "Upozornenie", MessageBoxButtons.OK, MessageBoxIcon.Warning);[m
+[31m-                return;[m
+[31m-            }[m
+[31m-[m
+[31m-            try[m
+[31m-            {[m
+[31m-                var row = dgvNotifications.SelectedRows[0];[m
+[31m-                if (int.TryParse(row.Cells[0].Value.ToString(), out int notificationId))[m
+[31m-                {[m
+[31m-                    if (MessageBox.Show("Naozaj chceš zmazať túto notifikáciu?", "Potvrdenie", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)[m
+[31m-                    {[m
+[31m-                        _notificationService.DeleteNotification(notificationId);[m
+[31m-                        _logger.LogSuccess("NotificationEditor", string.Format("Notifikácia zmazaná: ID {0}", notificationId));[m
+[31m-                        MessageBox.Show("Notifikácia bola zmazaná!", "Úspech", MessageBoxButtons.OK, MessageBoxIcon.Information);[m
+[31m-                        LoadNotificationsForCompany();[m
+[31m-                    }[m
+[31m-                }[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                MessageBox.Show(string.Format("Chyba pri mazaní notifikácie: {0}", ex.Message), "Chyba", MessageBoxButtons.OK, MessageBoxIcon.Error);[m
+[31m-                _logger.LogError("NotificationEditor", string.Format("Chyba pri mazaní: {0}", ex.Message));[m
+[31m-            }[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Models/Company.cs b/Models/Company.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 372e0dc..0000000[m
+[1m--- a/Models/Company.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,17 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Collections.Generic;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp.Models[m
+[31m-{[m
+[31m-    public class Company[m
+[31m-    {[m
+[31m-        public int Id { get; set; }[m
+[31m-        public string Name { get; set; }[m
+[31m-        public string Email { get; set; }[m
+[31m-        public bool HasEmployees { get; set; }      // Zamestnanci[m
+[31m-        public bool HasVAT { get; set; }             // DPH[m
+[31m-        public bool IsFromSlovakia { get; set; }     // Slovensko[m
+[31m-        public DateTime CreatedDate { get; set; }[m
+[31m-        public ICollection<NotificationTask> Tasks { get; set; } = new List<NotificationTask>();[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Models/CompanyNotification.cs b/Models/CompanyNotification.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 1b99ca4..0000000[m
+[1m--- a/Models/CompanyNotification.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,16 +0,0 @@[m
+[31m-using System;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp.Models[m
+[31m-{[m
+[31m-    public class CompanyNotification[m
+[31m-    {[m
+[31m-        public int Id { get; set; }[m
+[31m-        public int CompanyId { get; set; }[m
+[31m-        public string Description { get; set; }[m
+[31m-        public DateTime DueDate { get; set; }[m
+[31m-        public string NotificationType { get; set; }[m
+[31m-        public string RelatedOption { get; set; }[m
+[31m-        public bool IsCompleted { get; set; }[m
+[31m-        public DateTime CreatedDate { get; set; }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Models/CompanyOptionType.cs b/Models/CompanyOptionType.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 9c59e98..0000000[m
+[1m--- a/Models/CompanyOptionType.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,9 +0,0 @@[m
+[31m-namespace CompanyNotificationApp.Models[m
+[31m-{[m
+[31m-    public enum CompanyOptionType[m
+[31m-    {[m
+[31m-        Employees = 1,    // Zamestnanci[m
+[31m-        VAT = 2,          // DPH[m
+[31m-        Slovakia = 3      // Slovensko[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Models/NotificationTask.cs b/Models/NotificationTask.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 8369a50..0000000[m
+[1m--- a/Models/NotificationTask.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,17 +0,0 @@[m
+[31m-using System;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp.Models[m
+[31m-{[m
+[31m-    public class NotificationTask[m
+[31m-    {[m
+[31m-        public int Id { get; set; }[m
+[31m-        public int CompanyId { get; set; }[m
+[31m-        public string Description { get; set; }[m
+[31m-        public DateTime DueDate { get; set; }[m
+[31m-        public DateTime? LastNotificationDate { get; set; }[m
+[31m-        public string NotificationType { get; set; } // Email, Desktop, Both[m
+[31m-        public CompanyOptionType RelatedOption { get; set; }[m
+[31m-        public bool IsCompleted { get; set; }[m
+[31m-        public Company Company { get; set; }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Models/NotificationTemplate.cs b/Models/NotificationTemplate.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 610bae5..0000000[m
+[1m--- a/Models/NotificationTemplate.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,13 +0,0 @@[m
+[31m-namespace CompanyNotificationApp.Models[m
+[31m-{[m
+[31m-    public class NotificationTemplate[m
+[31m-    {[m
+[31m-        public int Id { get; set; }[m
+[31m-        public string Title { get; set; }[m
+[31m-        public string Description { get; set; }[m
+[31m-        public string EmailSubject { get; set; }[m
+[31m-        public string EmailBody { get; set; }[m
+[31m-        public CompanyOptionType OptionType { get; set; }[m
+[31m-        public int DaysBeforeDue { get; set; } // Počet dní pred termínom na notifikáciu[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Services/CompanyService.cs b/Services/CompanyService.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 387bd59..0000000[m
+[1m--- a/Services/CompanyService.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,200 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Collections.Generic;[m
+[31m-using System.Linq;[m
+[31m-using CompanyNotificationApp.Data;[m
+[31m-using CompanyNotificationApp.Models;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp.Services[m
+[31m-{[m
+[31m-    public class CompanyService[m
+[31m-    {[m
+[31m-        private readonly ApplicationDbContext _context;[m
+[31m-[m
+[31m-        public CompanyService(ApplicationDbContext context)[m
+[31m-        {[m
+[31m-            _context = context;[m
+[31m-        }[m
+[31m-[m
+[31m-        public List<Company> GetAllCompanies()[m
+[31m-        {[m
+[31m-            return _context.Companies.ToList();[m
+[31m-        }[m
+[31m-[m
+[31m-        public Company GetCompanyById(int id)[m
+[31m-        {[m
+[31m-            return _context.Companies.FirstOrDefault(c => c.Id == id);[m
+[31m-        }[m
+[31m-[m
+[31m-        public void AddCompany(Company company)[m
+[31m-        {[m
+[31m-            if (company == null)[m
+[31m-                throw new ArgumentNullException(nameof(company));[m
+[31m-[m
+[31m-            company.CreatedDate = DateTime.Now;[m
+[31m-            _context.Companies.Add(company);[m
+[31m-            _context.SaveChanges();[m
+[31m-[m
+[31m-            CreateInitialNotifications(company);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void CreateInitialNotifications(Company company)[m
+[31m-        {[m
+[31m-            if (company.HasEmployees)[m
+[31m-                CreateEmployeesNotification(company);[m
+[31m-[m
+[31m-            if (company.HasVAT)[m
+[31m-                CreateVATNotification(company);[m
+[31m-[m
+[31m-            if (company.IsFromSlovakia)[m
+[31m-                CreateSlovakiaNotification(company);[m
+[31m-[m
+[31m-            _context.SaveChanges();[m
+[31m-        }[m
+[31m-[m
+[31m-        public void UpdateCompany(Company company)[m
+[31m-        {[m
+[31m-            if (company == null)[m
+[31m-                throw new ArgumentNullException(nameof(company));[m
+[31m-[m
+[31m-            var existingCompany = _context.Companies.FirstOrDefault(c => c.Id == company.Id);[m
+[31m-            if (existingCompany == null)[m
+[31m-                throw new InvalidOperationException($"Spoločnosť s ID {company.Id} neexistuje.");[m
+[31m-[m
+[31m-            // Save old checkbox values before applying the update[m
+[31m-            bool oldHasEmployees = existingCompany.HasEmployees;[m
+[31m-            bool oldHasVAT = existingCompany.HasVAT;[m
+[31m-            bool oldIsFromSlovakia = existingCompany.IsFromSlovakia;[m
+[31m-[m
+[31m-            existingCompany.Name = company.Name;[m
+[31m-            existingCompany.Email = company.Email;[m
+[31m-            existingCompany.HasEmployees = company.HasEmployees;[m
+[31m-            existingCompany.HasVAT = company.HasVAT;[m
+[31m-            existingCompany.IsFromSlovakia = company.IsFromSlovakia;[m
+[31m-[m
+[31m-            _context.SaveChanges();[m
+[31m-[m
+[31m-            // Handle HasEmployees change[m
+[31m-            if (oldHasEmployees && !company.HasEmployees)[m
+[31m-            {[m
+[31m-                DeletePendingNotifications(company.Id, "Employees");[m
+[31m-            }[m
+[31m-            else if (!oldHasEmployees && company.HasEmployees)[m
+[31m-            {[m
+[31m-                CreateEmployeesNotification(existingCompany);[m
+[31m-            }[m
+[31m-[m
+[31m-            // Handle HasVAT change[m
+[31m-            if (oldHasVAT && !company.HasVAT)[m
+[31m-            {[m
+[31m-                DeletePendingNotifications(company.Id, "VAT");[m
+[31m-            }[m
+[31m-            else if (!oldHasVAT && company.HasVAT)[m
+[31m-            {[m
+[31m-                CreateVATNotification(existingCompany);[m
+[31m-            }[m
+[31m-[m
+[31m-            // Handle IsFromSlovakia change[m
+[31m-            if (oldIsFromSlovakia && !company.IsFromSlovakia)[m
+[31m-            {[m
+[31m-                DeletePendingNotifications(company.Id, "Slovakia");[m
+[31m-            }[m
+[31m-            else if (!oldIsFromSlovakia && company.IsFromSlovakia)[m
+[31m-            {[m
+[31m-                CreateSlovakiaNotification(existingCompany);[m
+[31m-            }[m
+[31m-[m
+[31m-            _context.SaveChanges();[m
+[31m-        }[m
+[31m-[m
+[31m-        private void DeletePendingNotifications(int companyId, string relatedOption)[m
+[31m-        {[m
+[31m-            var notifications = _context.CompanyNotifications[m
+[31m-                .Where(n => n.CompanyId == companyId && n.RelatedOption == relatedOption && !n.IsCompleted)[m
+[31m-                .ToList();[m
+[31m-[m
+[31m-            foreach (var notification in notifications)[m
+[31m-            {[m
+[31m-                _context.CompanyNotifications.Remove(notification);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void CreateEmployeesNotification(Company company)[m
+[31m-        {[m
+[31m-            var today = DateTime.Today;[m
+[31m-            var dueDate = today.Day <= 10[m
+[31m-                ? new DateTime(today.Year, today.Month, 10)[m
+[31m-                : new DateTime(today.Year, today.Month, 1).AddMonths(1).AddDays(9);[m
+[31m-[m
+[31m-            _context.CompanyNotifications.Add(new CompanyNotification[m
+[31m-            {[m
+[31m-                CompanyId = company.Id,[m
+[31m-                Description = "Mesačná povinnosť - Zamestnanci",[m
+[31m-                DueDate = dueDate,[m
+[31m-                NotificationType = "Monthly",[m
+[31m-                RelatedOption = "Employees",[m
+[31m-                IsCompleted = false,[m
+[31m-                CreatedDate = DateTime.Now[m
+[31m-            });[m
+[31m-        }[m
+[31m-[m
+[31m-        private void CreateVATNotification(Company company)[m
+[31m-        {[m
+[31m-            var today = DateTime.Today;[m
+[31m-            var dueDate = today.Day <= 20[m
+[31m-                ? new DateTime(today.Year, today.Month, 20)[m
+[31m-                : new DateTime(today.Year, today.Month, 1).AddMonths(1).AddDays(19);[m
+[31m-[m
+[31m-            _context.CompanyNotifications.Add(new CompanyNotification[m
+[31m-            {[m
+[31m-                CompanyId = company.Id,[m
+[31m-                Description = "Mesačná povinnosť - DPH",[m
+[31m-                DueDate = dueDate,[m
+[31m-                NotificationType = "Monthly",[m
+[31m-                RelatedOption = "VAT",[m
+[31m-                IsCompleted = false,[m
+[31m-                CreatedDate = DateTime.Now[m
+[31m-            });[m
+[31m-        }[m
+[31m-[m
+[31m-        private void CreateSlovakiaNotification(Company company)[m
+[31m-        {[m
+[31m-            var today = DateTime.Today;[m
+[31m-            var anniversaryThisYear = new DateTime(today.Year, company.CreatedDate.Month, company.CreatedDate.Day);[m
+[31m-            var dueDate = today < anniversaryThisYear[m
+[31m-                ? anniversaryThisYear[m
+[31m-                : anniversaryThisYear.AddYears(1);[m
+[31m-[m
+[31m-            _context.CompanyNotifications.Add(new CompanyNotification[m
+[31m-            {[m
+[31m-                CompanyId = company.Id,[m
+[31m-                Description = "Ročná povinnosť - Slovensko",[m
+[31m-                DueDate = dueDate,[m
+[31m-                NotificationType = "Annual",[m
+[31m-                RelatedOption = "Slovakia",[m
+[31m-                IsCompleted = false,[m
+[31m-                CreatedDate = DateTime.Now[m
+[31m-            });[m
+[31m-        }[m
+[31m-[m
+[31m-        public void DeleteCompany(int id)[m
+[31m-        {[m
+[31m-            var company = _context.Companies.FirstOrDefault(c => c.Id == id);[m
+[31m-            if (company != null)[m
+[31m-            {[m
+[31m-                _context.Companies.Remove(company);[m
+[31m-                _context.SaveChanges();[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        public List<Company> GetCompaniesByOption(CompanyOptionType optionType)[m
+[31m-        {[m
+[31m-            return optionType switch[m
+[31m-            {[m
+[31m-                CompanyOptionType.Employees => _context.Companies.Where(c => c.HasEmployees).ToList(),[m
+[31m-                CompanyOptionType.VAT => _context.Companies.Where(c => c.HasVAT).ToList(),[m
+[31m-                CompanyOptionType.Slovakia => _context.Companies.Where(c => c.IsFromSlovakia).ToList(),[m
+[31m-                _ => new List<Company>()[m
+[31m-            };[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Services/EmailService.cs b/Services/EmailService.cs[m
+[1mdeleted file mode 100644[m
+[1mindex db789fa..0000000[m
+[1m--- a/Services/EmailService.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,70 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Net;[m
+[31m-using System.Net.Mail;[m
+[31m-using System.Threading.Tasks;[m
+[31m-using CompanyNotificationApp.Models;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp.Services[m
+[31m-{[m
+[31m-    public class EmailService[m
+[31m-    {[m
+[31m-        private readonly string _smtpServer;[m
+[31m-        private readonly int _smtpPort;[m
+[31m-        private readonly string _senderEmail;[m
+[31m-        private readonly string _senderPassword;[m
+[31m-        private readonly bool _enableSsl;[m
+[31m-[m
+[31m-        public EmailService(string smtpServer = "smtp.gmail.com", int smtpPort = 587, [m
+[31m-            string senderEmail = "your-email@gmail.com", string senderPassword = "your-password",[m
+[31m-            bool enableSsl = true)[m
+[31m-        {[m
+[31m-            _smtpServer = smtpServer;[m
+[31m-            _smtpPort = smtpPort;[m
+[31m-            _senderEmail = senderEmail;[m
+[31m-            _senderPassword = senderPassword;[m
+[31m-            _enableSsl = enableSsl;[m
+[31m-        }[m
+[31m-[m
+[31m-        public async Task SendNotificationAsync(Company company, NotificationTask task)[m
+[31m-        {[m
+[31m-            if (string.IsNullOrEmpty(company.Email))[m
+[31m-                return;[m
+[31m-[m
+[31m-            try[m
+[31m-            {[m
+[31m-                using (var client = new SmtpClient(_smtpServer, _smtpPort))[m
+[31m-                {[m
+[31m-                    client.EnableSsl = _enableSsl;[m
+[31m-                    client.Credentials = new NetworkCredential(_senderEmail, _senderPassword);[m
+[31m-[m
+[31m-                    var message = new MailMessage[m
+[31m-                    {[m
+[31m-                        From = new MailAddress(_senderEmail, "Company Notification App"),[m
+[31m-                        Subject = task.Description,[m
+[31m-                        Body = GenerateEmailBody(company, task),[m
+[31m-                        IsBodyHtml = true[m
+[31m-                    };[m
+[31m-[m
+[31m-                    message.To.Add(company.Email);[m
+[31m-                    await client.SendMailAsync(message);[m
+[31m-                }[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                System.Diagnostics.Debug.WriteLine($"Chyba pri posielaní emailu: {ex.Message}");[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private string GenerateEmailBody(Company company, NotificationTask task)[m
+[31m-        {[m
+[31m-            return $@"[m
+[31m-                <h2>Upozornenie na povinnosť</h2>[m
+[31m-                <p>Ahoj {company.Name},</p>[m
+[31m-                <p>Upozorňujeme vás na nasledujúcu povinnos:</p>[m
+[31m-                <p><strong>{task.Description}</strong></p>[m
+[31m-                <p><strong>Termín do:</strong> {task.DueDate:dd.MM.yyyy}</p>[m
+[31m-                <p>Ďakujeme,<br/>Company Notification App</p>[m
+[31m-            ";[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Services/EventLogger.cs b/Services/EventLogger.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 20eef2c..0000000[m
+[1m--- a/Services/EventLogger.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,135 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Collections.Generic;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp.Services[m
+[31m-{[m
+[31m-    public enum LogLevel[m
+[31m-    {[m
+[31m-        Info,[m
+[31m-        Success,[m
+[31m-        Warning,[m
+[31m-        Error[m
+[31m-    }[m
+[31m-[m
+[31m-    public class LogEntry[m
+[31m-    {[m
+[31m-        public DateTime Timestamp { get; set; }[m
+[31m-        public LogLevel Level { get; set; }[m
+[31m-        public string Message { get; set; }[m
+[31m-        public string Category { get; set; }[m
+[31m-[m
+[31m-        public override string ToString()[m
+[31m-        {[m
+[31m-            string icon = "";[m
+[31m-            switch (Level)[m
+[31m-            {[m
+[31m-                case LogLevel.Info:[m
+[31m-                    icon = "ℹ️";[m
+[31m-                    break;[m
+[31m-                case LogLevel.Success:[m
+[31m-                    icon = "✅";[m
+[31m-                    break;[m
+[31m-                case LogLevel.Warning:[m
+[31m-                    icon = "⚠️";[m
+[31m-                    break;[m
+[31m-                case LogLevel.Error:[m
+[31m-                    icon = "❌";[m
+[31m-                    break;[m
+[31m-                default:[m
+[31m-                    icon = "•";[m
+[31m-                    break;[m
+[31m-            }[m
+[31m-[m
+[31m-            return string.Format("[{0:HH:mm:ss}] {1} {2}: {3}", Timestamp, icon, Level.ToString().ToUpper(), Message);[m
+[31m-        }[m
+[31m-    }[m
+[31m-[m
+[31m-    public class EventLogger[m
+[31m-    {[m
+[31m-        private List<LogEntry> _logs = new List<LogEntry>();[m
+[31m-        private static EventLogger _instance;[m
+[31m-        private static object _lock = new object();[m
+[31m-[m
+[31m-        public event Action<LogEntry> OnLogAdded;[m
+[31m-[m
+[31m-        private EventLogger()[m
+[31m-        {[m
+[31m-            LogInfo("EventLogger", "Aplikácia spustená");[m
+[31m-        }[m
+[31m-[m
+[31m-        public static EventLogger Instance[m
+[31m-        {[m
+[31m-            get[m
+[31m-            {[m
+[31m-                if (_instance == null)[m
+[31m-                {[m
+[31m-                    lock (_lock)[m
+[31m-                    {[m
+[31m-                        if (_instance == null)[m
+[31m-                        {[m
+[31m-                            _instance = new EventLogger();[m
+[31m-                        }[m
+[31m-                    }[m
+[31m-                }[m
+[31m-                return _instance;[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        public void LogInfo(string category, string message)[m
+[31m-        {[m
+[31m-            AddLog(LogLevel.Info, category, message);[m
+[31m-        }[m
+[31m-[m
+[31m-        public void LogSuccess(string category, string message)[m
+[31m-        {[m
+[31m-            AddLog(LogLevel.Success, category, message);[m
+[31m-        }[m
+[31m-[m
+[31m-        public void LogWarning(string category, string message)[m
+[31m-        {[m
+[31m-            AddLog(LogLevel.Warning, category, message);[m
+[31m-        }[m
+[31m-[m
+[31m-        public void LogError(string category, string message)[m
+[31m-        {[m
+[31m-            AddLog(LogLevel.Error, category, message);[m
+[31m-        }[m
+[31m-[m
+[31m-        private void AddLog(LogLevel level, string category, string message)[m
+[31m-        {[m
+[31m-            var logEntry = new LogEntry[m
+[31m-            {[m
+[31m-                Timestamp = DateTime.Now,[m
+[31m-                Level = level,[m
+[31m-                Message = message,[m
+[31m-                Category = category[m
+[31m-            };[m
+[31m-[m
+[31m-            lock (_logs)[m
+[31m-            {[m
+[31m-                _logs.Add(logEntry);[m
+[31m-            }[m
+[31m-[m
+[31m-            if (OnLogAdded != null)[m
+[31m-            {[m
+[31m-                OnLogAdded(logEntry);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        public List<LogEntry> GetAllLogs()[m
+[31m-        {[m
+[31m-            lock (_logs)[m
+[31m-            {[m
+[31m-                return new List<LogEntry>(_logs);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        public void ClearLogs()[m
+[31m-        {[m
+[31m-            lock (_logs)[m
+[31m-            {[m
+[31m-                _logs.Clear();[m
+[31m-            }[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Services/NotificationService.cs b/Services/NotificationService.cs[m
+[1mdeleted file mode 100644[m
+[1mindex d76dfc8..0000000[m
+[1m--- a/Services/NotificationService.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,212 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Collections.Generic;[m
+[31m-using System.Linq;[m
+[31m-using System.Threading.Tasks;[m
+[31m-using CompanyNotificationApp.Data;[m
+[31m-using CompanyNotificationApp.Models;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp.Services[m
+[31m-{[m
+[31m-    public class NotificationService[m
+[31m-    {[m
+[31m-        private readonly ApplicationDbContext _context;[m
+[31m-        private readonly EmailService _emailService;[m
+[31m-[m
+[31m-        public NotificationService(ApplicationDbContext context, EmailService emailService)[m
+[31m-        {[m
+[31m-            _context = context;[m
+[31m-            _emailService = emailService;[m
+[31m-        }[m
+[31m-[m
+[31m-        public async Task CheckAndNotifyAsync()[m
+[31m-        {[m
+[31m-            try[m
+[31m-            {[m
+[31m-                var allCompanies = _context.Companies.ToList();[m
+[31m-[m
+[31m-                foreach (var company in allCompanies)[m
+[31m-                {[m
+[31m-                    // Kontorla NotificationTasks (automatické - Zamestnanci, DPH, Slovensko)[m
+[31m-                    if (company.HasEmployees)[m
+[31m-                        await CheckOptionAsync(company, CompanyOptionType.Employees);[m
+[31m-[m
+[31m-                    if (company.HasVAT)[m
+[31m-                        await CheckOptionAsync(company, CompanyOptionType.VAT);[m
+[31m-[m
+[31m-                    if (company.IsFromSlovakia)[m
+[31m-                        await CheckOptionAsync(company, CompanyOptionType.Slovakia);[m
+[31m-[m
+[31m-                    // Kontrola CompanyNotifications (manuálne vytvorené)[m
+[31m-                    await CheckCompanyNotificationsAsync(company);[m
+[31m-                }[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                System.Diagnostics.Debug.WriteLine($"Chyba pri kontrole notifikácií: {ex.Message}");[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private async Task CheckOptionAsync(Company company, CompanyOptionType optionType)[m
+[31m-        {[m
+[31m-            var existingTask = _context.NotificationTasks[m
+[31m-                .FirstOrDefault(nt => nt.CompanyId == company.Id && [m
+[31m-                                      nt.RelatedOption == optionType && [m
+[31m-                                      !nt.IsCompleted &&[m
+[31m-                                      nt.DueDate > DateTime.Now);[m
+[31m-[m
+[31m-            if (existingTask == null)[m
+[31m-            {[m
+[31m-                var newTask = new NotificationTask[m
+[31m-                {[m
+[31m-                    CompanyId = company.Id,[m
+[31m-                    Description = GetTaskDescription(optionType),[m
+[31m-                    DueDate = GetNextDueDate(optionType),[m
+[31m-                    RelatedOption = optionType,[m
+[31m-                    NotificationType = "Email",[m
+[31m-                    IsCompleted = false,[m
+[31m-                    LastNotificationDate = DateTime.Now[m
+[31m-                };[m
+[31m-[m
+[31m-                _context.NotificationTasks.Add(newTask);[m
+[31m-                await _emailService.SendNotificationAsync(company, newTask);[m
+[31m-                _context.SaveChanges();[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private async Task CheckCompanyNotificationsAsync(Company company)[m
+[31m-        {[m
+[31m-            var pendingNotifications = _context.CompanyNotifications[m
+[31m-                .Where(cn => cn.CompanyId == company.Id && [m
+[31m-                            !cn.IsCompleted && [m
+[31m-                            cn.DueDate <= DateTime.Now)[m
+[31m-                .ToList();[m
+[31m-[m
+[31m-            foreach (var notification in pendingNotifications)[m
+[31m-            {[m
+[31m-                // Vytvor NotificationTask z CompanyNotification[m
+[31m-                var task = new NotificationTask[m
+[31m-                {[m
+[31m-                    CompanyId = company.Id,[m
+[31m-                    Description = notification.Description,[m
+[31m-                    DueDate = notification.DueDate,[m
+[31m-                    RelatedOption = CompanyOptionType.Slovakia, // Default, keďže CompanyNotification nemá konkrétny typ[m
+[31m-                    NotificationType = notification.NotificationType,[m
+[31m-                    IsCompleted = false,[m
+[31m-                    LastNotificationDate = DateTime.Now[m
+[31m-                };[m
+[31m-[m
+[31m-                // Pošli email[m
+[31m-                await _emailService.SendNotificationAsync(company, task);[m
+[31m-[m
+[31m-                // Označ ako hotové[m
+[31m-                notification.IsCompleted = true;[m
+[31m-                _context.SaveChanges();[m
+[31m-[m
+[31m-                System.Diagnostics.Debug.WriteLine($"Notifikácia poslana: {company.Name} - {notification.Description}");[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private string GetTaskDescription(CompanyOptionType optionType)[m
+[31m-        {[m
+[31m-            switch (optionType)[m
+[31m-            {[m
+[31m-                case CompanyOptionType.Employees:[m
+[31m-                    return "Povinnosť: Hlásenie zamestnancov";[m
+[31m-                case CompanyOptionType.VAT:[m
+[31m-                    return "Povinnosť: DPH vykazovanie";[m
+[31m-                case CompanyOptionType.Slovakia:[m
+[31m-                    return "Povinnosť: Hlásenie pre Slovensko";[m
+[31m-                default:[m
+[31m-                    return "Nová povinnosť";[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private DateTime GetNextDueDate(CompanyOptionType optionType)[m
+[31m-        {[m
+[31m-            switch (optionType)[m
+[31m-            {[m
+[31m-                case CompanyOptionType.Employees:[m
+[31m-                    return DateTime.Now.AddMonths(1);[m
+[31m-                case CompanyOptionType.VAT:[m
+[31m-                    return DateTime.Now.AddMonths(1);[m
+[31m-                case CompanyOptionType.Slovakia:[m
+[31m-                    return DateTime.Now.AddMonths(3);[m
+[31m-                default:[m
+[31m-                    return DateTime.Now.AddMonths(1);[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        public void MarkTaskAsCompleted(int taskId)[m
+[31m-        {[m
+[31m-            var task = _context.NotificationTasks.FirstOrDefault(t => t.Id == taskId);[m
+[31m-            if (task != null)[m
+[31m-            {[m
+[31m-                task.IsCompleted = true;[m
+[31m-                _context.SaveChanges();[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        public List<NotificationTask> GetPendingTasksForCompany(int companyId)[m
+[31m-        {[m
+[31m-            return _context.NotificationTasks[m
+[31m-                .Where(nt => nt.CompanyId == companyId && !nt.IsCompleted && nt.DueDate <= DateTime.Now)[m
+[31m-                .ToList();[m
+[31m-        }[m
+[31m-[m
+[31m-        public List<NotificationTask> GetAllPendingTasks()[m
+[31m-        {[m
+[31m-            return _context.NotificationTasks[m
+[31m-                .Where(nt => !nt.IsCompleted && nt.DueDate <= DateTime.Now)[m
+[31m-                .ToList();[m
+[31m-        }[m
+[31m-[m
+[31m-        // Nové metódy pre CompanyNotification[m
+[31m-        public void AddNotification(CompanyNotification notification)[m
+[31m-        {[m
+[31m-            if (notification == null)[m
+[31m-                throw new ArgumentNullException(nameof(notification));[m
+[31m-[m
+[31m-            _context.CompanyNotifications.Add(notification);[m
+[31m-            _context.SaveChanges();[m
+[31m-        }[m
+[31m-[m
+[31m-        public void DeleteNotification(int notificationId)[m
+[31m-        {[m
+[31m-            var notification = _context.CompanyNotifications.FirstOrDefault(n => n.Id == notificationId);[m
+[31m-            if (notification != null)[m
+[31m-            {[m
+[31m-                _context.CompanyNotifications.Remove(notification);[m
+[31m-                _context.SaveChanges();[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        public List<CompanyNotification> GetNotificationsByCompany(int companyId)[m
+[31m-        {[m
+[31m-            return _context.CompanyNotifications[m
+[31m-                .Where(n => n.CompanyId == companyId)[m
+[31m-                .OrderByDescending(n => n.CreatedDate)[m
+[31m-                .ToList();[m
+[31m-        }[m
+[31m-[m
+[31m-        public CompanyNotification GetNotificationById(int notificationId)[m
+[31m-        {[m
+[31m-            return _context.CompanyNotifications.FirstOrDefault(n => n.Id == notificationId);[m
+[31m-        }[m
+[31m-[m
+[31m-        public void UpdateNotification(CompanyNotification notification)[m
+[31m-        {[m
+[31m-            if (notification == null)[m
+[31m-                throw new ArgumentNullException(nameof(notification));[m
+[31m-[m
+[31m-            var existing = _context.CompanyNotifications.FirstOrDefault(n => n.Id == notification.Id);[m
+[31m-            if (existing != null)[m
+[31m-            {[m
+[31m-                existing.Description = notification.Description;[m
+[31m-                existing.DueDate = notification.DueDate;[m
+[31m-                existing.NotificationType = notification.NotificationType;[m
+[31m-                existing.IsCompleted = notification.IsCompleted;[m
+[31m-                _context.SaveChanges();[m
+[31m-            }[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
+[1mdiff --git a/Services/TaskSchedulerService.cs b/Services/TaskSchedulerService.cs[m
+[1mdeleted file mode 100644[m
+[1mindex 192774d..0000000[m
+[1m--- a/Services/TaskSchedulerService.cs[m
+[1m+++ /dev/null[m
+[36m@@ -1,61 +0,0 @@[m
+[31m-using System;[m
+[31m-using System.Timers;[m
+[31m-using System.Threading.Tasks;[m
+[31m-using CompanyNotificationApp.Data;[m
+[31m-[m
+[31m-namespace CompanyNotificationApp.Services[m
+[31m-{[m
+[31m-    public class TaskSchedulerService[m
+[31m-    {[m
+[31m-        private Timer _timer;[m
+[31m-        private readonly ApplicationDbContext _context;[m
+[31m-        private readonly NotificationService _notificationService;[m
+[31m-        private readonly EmailService _emailService;[m
+[31m-        private bool _isRunning = false;[m
+[31m-[m
+[31m-        public TaskSchedulerService(ApplicationDbContext context, EmailService emailService)[m
+[31m-        {[m
+[31m-            _context = context;[m
+[31m-            _emailService = emailService;[m
+[31m-            _notificationService = new NotificationService(context, emailService);[m
+[31m-        }[m
+[31m-[m
+[31m-        public void StartScheduler(int intervalMinutes = 60)[m
+[31m-        {[m
+[31m-            if (_isRunning)[m
+[31m-                return;[m
+[31m-[m
+[31m-            _timer = new Timer(intervalMinutes * 60 * 1000); // Konverzia na milisekundy[m
+[31m-            _timer.Elapsed += OnTimerElapsed;[m
+[31m-            _timer.AutoReset = true;[m
+[31m-            _timer.Start();[m
+[31m-            _isRunning = true;[m
+[31m-[m
+[31m-            System.Diagnostics.Debug.WriteLine($"Scheduler spustený. Kontrola každých {intervalMinutes} minút.");[m
+[31m-        }[m
+[31m-[m
+[31m-        public void StopScheduler()[m
+[31m-        {[m
+[31m-            if (_timer != null)[m
+[31m-            {[m
+[31m-                _timer.Stop();[m
+[31m-                _timer.Dispose();[m
+[31m-                _isRunning = false;[m
+[31m-                System.Diagnostics.Debug.WriteLine("Scheduler zastavený.");[m
+[31m-            }[m
+[31m-        }[m
+[31m-[m
+[31m-        private void OnTimerElapsed(object sender, ElapsedEventArgs e)[m
+[31m-        {[m
+[31m-            try[m
+[31m-            {[m
+[31m-                System.Diagnostics.Debug.WriteLine($"Scheduler spustený o {DateTime.Now:yyyy-MM-dd HH:mm:ss}");[m
+[31m-                _notificationService.CheckAndNotifyAsync().Wait();[m
+[31m-            }[m
+[31m-            catch (Exception ex)[m
+[31m-            {[m
+[31m-                System.Diagnostics.Debug.WriteLine($"Chyba pri spustení schedulera: {ex.Message}");[m
+[31m-            }[m
+[31m-        }[m
+[31m-    }[m
+[31m-}[m
