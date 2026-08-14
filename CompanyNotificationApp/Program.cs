@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows.Forms;
 
 namespace CompanyNotificationApp
@@ -10,7 +10,7 @@ namespace CompanyNotificationApp
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainForm());
+            Application.Run(new MainForm());  // ← ZMENA Z Form1 na MainForm
         }
     }
 }
